@@ -8,7 +8,7 @@
 // are relative, so it works under the GitHub Pages `/<repo>/` subpath.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync, writeFileSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -32,7 +32,9 @@ if (!existsSync(built)) {
     throw new Error(`expected wasm at ${built} — did the build target change?`);
 }
 
-rmSync(dist, { recursive: true, force: true });
+// Overwrite files in place (don't remove dist/ — a running static server may
+// have it as its working directory, which Windows won't let us delete). The
+// output filenames are fixed, so overwriting is a clean refresh.
 mkdirSync(dist, { recursive: true });
 copyFileSync(built, join(dist, WASM));
 copyFileSync(join(web, "index.html"), join(dist, "index.html"));
