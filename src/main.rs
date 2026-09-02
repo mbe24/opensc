@@ -1,10 +1,4 @@
-//! OpenSC — a faithful, multiplatform Rust/macroquad port of Duane Blehm's 1986
-//! Macintosh game *StuntCopter*.
-//!
-//! This is currently a walking skeleton: it boots on native and web, runs a
-//! fixed-timestep simulation, renders through the integer-scaled virtual canvas,
-//! and lets you fly the copter (mouse-as-joystick or keyboard) over a rolling
-//! wagon. The stuntman, collisions, scoring, and HUD land next.
+#![doc = include_str!("../README.md")]
 
 mod assets;
 mod atlas;
