@@ -71,6 +71,15 @@ async fn main() {
 fn draw_scene(assets: &Assets, world: &World) {
     clear_background(theme::SKY);
 
+    // The ground line the wagon rolls along, full width.
+    draw_line(
+        0.0,
+        GROUND_Y as f32,
+        config::LOGICAL_W as f32,
+        GROUND_Y as f32,
+        1.0,
+        theme::INK,
+    );
     draw::sprite(
         assets,
         world.cloud.sprite(),

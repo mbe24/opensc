@@ -69,31 +69,42 @@ pub const GRAVITY_WORDS: [&str; 4] = ["OH BOY", "FLYING", "NORMAL", "HEAVY"];
 /// Slowest to fastest wagon words, indexed by `wagon speed` (1..=3).
 pub const WAGON_WORDS: [&str; 3] = ["WALK", "TROT", "GALLOP"];
 
-// --- Layout: HUD at the bottom, ground line just above it ------------------
+// --- Layout: exact from OneTimeGameStuff (portRect = 512x342) ---------------
 
-/// Height of the bottom scorebox HUD panel.
-pub const SCOREBOX_H: i32 = 50;
-/// Y of the top of the scorebox HUD.
-pub const SCOREBOX_TOP: i32 = LOGICAL_H - SCOREBOX_H;
-/// The ground line the wagon rolls along (`ScoreBoxRect.top - 4`).
-pub const GROUND_Y: i32 = SCOREBOX_TOP - 4;
+/// The ground line / wagon baseline (`ScoreBoxRect.top - 4`), full width.
+pub const GROUND_Y: i32 = 285;
+/// Top of the dkGray HUD band (`ScoreBoxRect.top - 3`).
+pub const HUD_BAND_TOP: i32 = 286;
 /// Copter may not descend below this bottom edge (`WagonRect.top - 10`).
 pub const COPTER_BOTTOM_LIMIT: i32 = (GROUND_Y - WAGON_H) - 10;
 
-// --- HUD reconstruction: a full-width gray strip of white section boxes ------
-// `(x, width)` per section; every box spans `HUD_TOP..LOGICAL_H`.
+/// The ScoreBox panel (PICT #130): centered, `(x, y, w, h)`.
+pub const SB_X: i32 = 62;
+pub const SB_Y: i32 = 289;
+pub const SB_W: i32 = 387;
+pub const SB_H: i32 = 51;
 
-pub const HUD_TOP: i32 = SCOREBOX_TOP;
-pub const HUD_H: i32 = LOGICAL_H - SCOREBOX_TOP;
+// --- ScoreBox sub-rects, offsets relative to (SB_X, SB_Y) -------------------
 
-pub const HUD_FLIP_L: (i32, i32) = (2, 52);
-pub const HUD_YOKE_BOX: (i32, i32) = (56, 52);
-pub const HUD_MEN_BOX: (i32, i32) = (110, 92);
-pub const HUD_SCORE_BOX: (i32, i32) = (204, 138);
-pub const HUD_PANEL_BOX: (i32, i32) = (344, 116);
-pub const HUD_FLIP_R: (i32, i32) = (462, 48);
-
-/// Numeral cell width for the packed score digits.
+/// First life man; step [`HUD_MAN_DX`] per column, thumb rows below.
+pub const HUD_MAN0: (i32, i32) = (54, 0);
+pub const HUD_MAN_DX: i32 = 15;
+pub const HUD_THUMBUP_DY: i32 = 17;
+pub const HUD_THUMBDOWN_DY: i32 = 34;
+/// First score digit; step [`HUD_DIGIT_DX`] per digit, hiscore [`HUD_HISCORE_DY`] below.
+pub const HUD_NUM0: (i32, i32) = (135, 10);
 pub const HUD_DIGIT_DX: i32 = 21;
-/// Crosshair arm length inside the yoke box.
-pub const HUD_YOKE_RADIUS: f32 = 15.0;
+pub const HUD_HISCORE_DY: i32 = 25;
+/// The yoke window (`YokeErase`), where the crosshair moves.
+pub const HUD_YOKE_WIN: (i32, i32, i32, i32) = (4, 4, 43, 43);
+/// Height number (left-aligned), and centered wagon/gravity word rows.
+pub const HUD_HEIGHT: (i32, i32) = (339, 2);
+pub const HUD_WAGON_ROW: i32 = 19;
+pub const HUD_GRAV_ROW: i32 = 36;
+/// Value column (right of the panel divider), for centering the status words.
+pub const HUD_VALUE_X0: i32 = 325;
+pub const HUD_VALUE_X1: i32 = SB_W - 2;
+
+/// Flip boxes at the screen edges, `(x, y, w, h)` (`FlipFrame[1/2]`).
+pub const FLIP_BOX_L: (i32, i32, i32, i32) = (11, 289, 40, 46);
+pub const FLIP_BOX_R: (i32, i32, i32, i32) = (460, 289, 40, 46);

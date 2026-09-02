@@ -6,7 +6,7 @@
 
 use macroquad::prelude::*;
 
-use crate::config::{HUD_H, LOGICAL_W};
+use crate::config::{HUD_BAND_TOP, LOGICAL_H, LOGICAL_W};
 
 /// The packed atlas: every sprite as a white silhouette on transparency, so it
 /// can be tinted to any colour at draw time (see [`crate::atlas::Sprite`]).
@@ -44,7 +44,7 @@ impl Assets {
 /// A full-width HUD-strip checkerboard of black/transparent pixels — drawn once
 /// behind the HUD, it reads as the original's 50% gray dither over the sky.
 fn hud_dither() -> Texture2D {
-    let (w, h) = (LOGICAL_W as u16, HUD_H as u16);
+    let (w, h) = (LOGICAL_W as u16, (LOGICAL_H - HUD_BAND_TOP) as u16);
     let mut img = Image::gen_image_color(w, h, Color::new(0.0, 0.0, 0.0, 0.0));
     // 25% coverage — a light gray that keeps black content readable once the
     // whole canvas is magnified.
