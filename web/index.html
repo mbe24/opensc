@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>OpenSC — StuntCopter</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #181818;
+        }
+        /* Fill the viewport; block browser gestures so touch-drag steers instead
+           of scrolling/zooming the page. */
+        #glcanvas {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #181818;
+            touch-action: none;
+            outline: none;
+        }
+        /* Loading overlay, shown until the wasm module initializes. The real load
+           cost is the wasm binary download, not the assets (which are embedded). */
+        #loading {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1.25rem;
+            background: #181818;
+            color: #eaeaea;
+            font: 500 1rem/1.4 system-ui, sans-serif;
+            z-index: 10;
+        }
+        #loading .spinner {
+            width: 42px;
+            height: 42px;
+            border: 4px solid #3a3a3a;
+            border-top-color: #eaeaea;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <canvas id="glcanvas" tabindex="0"></canvas>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <div>Loading StuntCopter…</div>
+    </div>
+
+    <script src="mq_js_bundle.js"></script>
+    <script>
+        // Remove the loading overlay once the game has initialized.
+        miniquad_add_plugin({
+            name: "opensc_loader",
+            version: "1.0",
+            on_init: () => document.getElementById("loading")?.remove(),
+        });
+        load("stuntcopter.wasm");
+    </script>
+</body>
+</html>

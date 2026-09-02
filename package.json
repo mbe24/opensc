@@ -1,0 +1,10 @@
+{
+  "name": "opensc-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Web build tooling for OpenSC (the game itself is a Rust/macroquad crate).",
+  "type": "module",
+  "scripts": {
+    "build:web": "node scripts/build-web.mjs"
+  }
+}
