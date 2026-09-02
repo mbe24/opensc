@@ -66,6 +66,11 @@ impl Copter {
         }
     }
 
+    /// Advance the rotor animation without moving (attract-screen idle).
+    pub fn animate(&mut self) {
+        self.frame = (self.frame + 1) % 3;
+    }
+
     /// Current velocity (px/tick), for the HUD yoke indicator.
     #[must_use]
     pub fn velocity(&self) -> (i32, i32) {

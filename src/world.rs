@@ -34,6 +34,9 @@ pub struct World {
     pub good_jumps: i32,
     /// Per-man result for this level: `Some(true)` landed, `Some(false)` failed.
     pub results: [Option<bool>; MEN_PER_LEVEL as usize],
+    /// Set when the last man is spent without clearing the level — the scene
+    /// layer returns to the attract screen.
+    pub over: bool,
     phase: u8,
 }
 
@@ -50,6 +53,7 @@ impl Default for World {
             men_left: MEN_PER_LEVEL,
             good_jumps: 0,
             results: [None; MEN_PER_LEVEL as usize],
+            over: false,
             phase: 0,
         }
     }
@@ -86,6 +90,24 @@ impl World {
             self.cloud.tick();
         }
         self.step_stuntman(intents.drop);
+    }
+
+    /// Idle animation for the attract screen: the copter hovers (rotor spins),
+    /// the wagon strolls, and clouds drift — no gameplay.
+    pub fn attract_tick(&mut self) {
+        self.copter.animate();
+        self.wagon.tick(self.progression.wagon.px());
+        self.phase = (self.phase + 1) % CLOUD_TICKS;
+        if self.phase == 0 {
+            self.cloud.tick();
+        }
+    }
+
+    /// Start a fresh game, keeping the running high score.
+    pub fn begin(&mut self) {
+        let hiscore = self.hiscore;
+        *self = Self::default();
+        self.hiscore = hiscore;
     }
 
     /// The hanging man's top-left, tracking the copter.
@@ -215,8 +237,7 @@ impl World {
     }
 
     fn game_over(&mut self) {
-        let hiscore = self.hiscore.max(self.score);
-        *self = Self::default();
-        self.hiscore = hiscore;
+        self.hiscore = self.hiscore.max(self.score);
+        self.over = true;
     }
 }

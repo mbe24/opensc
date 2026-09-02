@@ -3,3 +3,6 @@
 /node_modules
 **/*.rs.bk
 .DS_Store
+
+# Python bytecode cache from asset scripts
+__pycache__/

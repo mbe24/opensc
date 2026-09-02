@@ -6,7 +6,7 @@
 
 use macroquad::prelude::*;
 
-use crate::config::{HUD_BAND_TOP, LOGICAL_H, LOGICAL_W};
+use crate::config::{HUD_BAND_TOP, HUD_YOKE_WIN, LOGICAL_H, LOGICAL_W};
 
 /// The packed atlas: every sprite as a white silhouette on transparency, so it
 /// can be tinted to any colour at draw time (see [`crate::atlas::Sprite`]).
@@ -21,6 +21,9 @@ pub struct Assets {
     pub font: Texture2D,
     /// A 1-px-checkerboard gray tile, tinted and tiled for the HUD panel.
     pub dither: Texture2D,
+    /// A 50% checkerboard sized to the yoke window, covering the yoke while no
+    /// game is underway (the original's `FillRect(YokeErase, Gray)`).
+    pub yoke_gray: Texture2D,
 }
 
 impl Assets {
@@ -37,8 +40,26 @@ impl Assets {
             atlas,
             font,
             dither: hud_dither(),
+            yoke_gray: yoke_gray(),
         }
     }
+}
+
+/// A 50% black/transparent checkerboard exactly the size of the yoke window, so
+/// it drops in crisp and phase-aligned with no scaling.
+fn yoke_gray() -> Texture2D {
+    let (_, _, w, h) = HUD_YOKE_WIN;
+    let mut img = Image::gen_image_color(w as u16, h as u16, Color::new(0.0, 0.0, 0.0, 0.0));
+    for y in 0..u32::from(h as u16) {
+        for x in 0..u32::from(w as u16) {
+            if (x + y) % 2 == 0 {
+                img.set_pixel(x, y, BLACK);
+            }
+        }
+    }
+    let tex = Texture2D::from_image(&img);
+    tex.set_filter(FilterMode::Nearest);
+    tex
 }
 
 /// A full-width HUD-strip checkerboard of black/transparent pixels — drawn once

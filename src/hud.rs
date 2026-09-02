@@ -21,7 +21,7 @@ use crate::draw;
 use crate::theme::{INK, SKY};
 use crate::world::World;
 
-pub fn draw(assets: &Assets, world: &World) {
+pub fn draw(assets: &Assets, world: &World, playing: bool) {
     // dkGray band, then the opaque-white ScoreBox PICT on top (gray shows only in
     // the margins / flip-box areas).
     draw_texture(&assets.dither, 0.0, HUD_BAND_TOP as f32, WHITE);
@@ -32,7 +32,19 @@ pub fn draw(assets: &Assets, world: &World) {
     draw_digits(assets, world.score, HUD_NUM0.1);
     draw_digits(assets, world.hiscore, HUD_NUM0.1 + HUD_HISCORE_DY);
     draw_status(assets, world);
-    draw_yoke(world);
+    // The yoke tracks the copter only while a game is underway; otherwise it is
+    // covered with gray (the original's `FillRect(YokeErase, Gray)`).
+    if playing {
+        draw_yoke(world);
+    } else {
+        let (wx, wy, _, _) = HUD_YOKE_WIN;
+        draw_texture(
+            &assets.yoke_gray,
+            (SB_X + wx) as f32,
+            (SB_Y + wy) as f32,
+            INK,
+        );
+    }
 }
 
 /// Invert the current man's cell (baked in the PICT) and draw thumbs for the men
