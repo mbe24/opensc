@@ -26,6 +26,8 @@ pub struct World {
     pub gravity: i32,
     pub men_left: i32,
     pub good_jumps: i32,
+    /// Per-man result for this level: `Some(true)` landed, `Some(false)` failed.
+    pub results: [Option<bool>; MEN_PER_LEVEL as usize],
 }
 
 impl Default for World {
@@ -40,6 +42,7 @@ impl Default for World {
             gravity: GRAVITY_START,
             men_left: MEN_PER_LEVEL,
             good_jumps: 0,
+            results: [None; MEN_PER_LEVEL as usize],
         }
     }
 }
@@ -122,6 +125,9 @@ impl World {
     }
 
     fn score_outcome(&mut self, outcome: Outcome, height: i32) {
+        // Record this man's result before `men_left` is touched below.
+        let man = self.current_man();
+        self.results[man] = Some(matches!(outcome, Outcome::Landed));
         match outcome {
             Outcome::Landed => {
                 self.score += self.level * height;
@@ -132,6 +138,18 @@ impl World {
             Outcome::HitDriver | Outcome::HitHorse => self.men_left = 1,
             Outcome::Splat => {}
         }
+    }
+
+    /// Zero-based index of the man currently in play (0..=4).
+    #[must_use]
+    pub fn current_man(&self) -> usize {
+        (MEN_PER_LEVEL - self.men_left).clamp(0, MEN_PER_LEVEL - 1) as usize
+    }
+
+    /// Current copter height above the ground, as shown in the HUD.
+    #[must_use]
+    pub fn height(&self) -> i32 {
+        (GROUND_Y - (self.copter.y + COPTER_H)).max(0)
     }
 
     fn reset_man(&mut self) {
@@ -155,6 +173,7 @@ impl World {
         }
         self.men_left = MEN_PER_LEVEL;
         self.good_jumps = 0;
+        self.results = [None; MEN_PER_LEVEL as usize];
         self.stuntman = Stuntman::Hanging;
     }
 

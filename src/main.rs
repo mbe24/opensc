@@ -6,6 +6,7 @@ mod canvas;
 mod config;
 mod copter;
 mod draw;
+mod hud;
 mod input;
 mod stuntman;
 mod theme;
@@ -90,6 +91,7 @@ fn draw_scene(assets: &Assets, world: &World) {
         theme::INK,
     );
     draw_stuntman(assets, world);
+    hud::draw(assets, world);
 }
 
 /// Draw the stuntman for the current phase.
