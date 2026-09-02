@@ -12,7 +12,11 @@
 use macroquad::prelude::*;
 
 use crate::canvas::Canvas;
-use crate::config::{DELTA_RECT, MOUSE_RECT};
+use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
+
+/// Fraction of each half-axis around the canvas centre that reads as neutral,
+/// so the copter can hover without the pointer being pixel-perfect.
+const DEAD_ZONE: f32 = 0.10;
 
 /// What the player is asking for this frame.
 pub struct Intents {
@@ -65,22 +69,40 @@ fn keyboard_steer() -> Option<(i32, i32)> {
     active.then_some((dir_h, dir_v))
 }
 
-/// Proportional steering from the pointer: its position within [`MOUSE_RECT`]
-/// maps linearly onto [`DELTA_RECT`], exactly like the original's `MapPt`.
+/// Proportional steering from the pointer.
+///
+/// Departure from the original: instead of the tiny faithful [`MOUSE_RECT`]
+/// control box (which made anywhere outside it full-deflection), the pointer's
+/// offset from the canvas centre drives the requested velocity across the whole
+/// canvas, with a dead zone at the centre for stable hovering. The edges reach
+/// the [`DELTA_RECT`] extremes.
 fn pointer_steer(canvas: &Canvas) -> (i32, i32) {
     let (mouse_x, mouse_y) = mouse_position();
     let p = canvas.screen_to_canvas(vec2(mouse_x, mouse_y));
-    let (left, top, right, bottom) = MOUSE_RECT;
+    let nx = axis(p.x, LOGICAL_W);
+    let ny = axis(p.y, LOGICAL_H);
     let (min_h, min_v, max_h, max_v) = DELTA_RECT;
-    (
-        map_clamp(p.x, left, right, min_h, max_h),
-        map_clamp(p.y, top, bottom, min_v, max_v),
-    )
+
+    // Vertical range is asymmetric (rises faster than it climbs); scale up/down
+    // against the matching extreme so the centre is always a true hover.
+    let req_h = (nx * max_h as f32).round() as i32;
+    let req_v = if ny < 0.0 {
+        (ny * min_v.unsigned_abs() as f32).round() as i32
+    } else {
+        (ny * max_v as f32).round() as i32
+    };
+    (req_h.clamp(min_h, max_h), req_v.clamp(min_v, max_v))
 }
 
-/// Map `v` from input range `[in0, in1]` onto output range `[out0, out1]`,
-/// clamping first. Integer division truncates toward zero, matching Pascal.
-fn map_clamp(v: f32, in0: i32, in1: i32, out0: i32, out1: i32) -> i32 {
-    let v = (v as i32).clamp(in0, in1);
-    out0 + (v - in0) * (out1 - out0) / (in1 - in0)
+/// Normalize a canvas coordinate to `[-1, 1]` about the centre of `size`, with a
+/// dead zone: within [`DEAD_ZONE`] of centre returns 0, and the remainder is
+/// re-expanded so the edge still reaches ±1.
+fn axis(coord: f32, size: i32) -> f32 {
+    let half = size as f32 / 2.0;
+    let n = ((coord - half) / half).clamp(-1.0, 1.0);
+    if n.abs() < DEAD_ZONE {
+        0.0
+    } else {
+        n.signum() * (n.abs() - DEAD_ZONE) / (1.0 - DEAD_ZONE)
+    }
 }
