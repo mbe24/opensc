@@ -1,134 +1,85 @@
-"""Generate the game atlas + typed Rust sprite table from the decoded sheet.
+"""Generate the game atlas + typed Rust sprite table from the ORIGINAL PICT
+resources (the authentic runtime graphics), not the author's FullPaint sketch.
 
-Each sprite is extracted from the decoded FullPaint sheet, recoloured to a
-white silhouette on transparency (so the game can TINT it to any colour at draw
-time), and PACKED into a fresh atlas with a transparent gutter around every
-sprite. The gutter is essential: without it, nearest-neighbour sampling at a
-sprite's edge bleeds a sliver of the neighbouring sprite (visible as blinking
-lines during animation).
+Each PICT is decoded from the recovered resource fork and sliced into individual
+sprites using the exact offsets from `CreateOffScreenRects` in StuntCopter.pas.
+The PICTs are clean, so no divider/speck cleanup is needed. Sprites are packed
+with a transparent gutter; ink becomes opaque white (tint at draw time).
 """
 
-import json, os, re
+import os
+import re
+import sys
 import numpy as np
 from PIL import Image
 
-REF = r"D:\training\opensc\reference\stuntcopter\png"
+sys.path.insert(0, os.path.dirname(__file__))
+from pict import read_ad_rsrc, get_pict, decode_pict
+
+REF = r"D:\training\opensc\reference\stuntcopter"
 ASSETS = r"D:\training\opensc\assets"
 SRC = r"D:\training\opensc\src"
-os.makedirs(ASSETS, exist_ok=True)
+PAD = 2
+ATLAS_W = 512
 
-# Where the artwork sits inside the full decoded sheet.
-OX, OY = 60, 25
-PAD = 2          # transparent gutter around every sprite, in pixels
-ATLAS_W = 512    # wide enough for the widest sprite (scorebox, ~388px)
-
-sheet = Image.open(os.path.join(REF, "shapes_full.png")).convert("L")
-meta = json.load(open(os.path.join(REF, "sprites.json")))
+rf = read_ad_rsrc(os.path.join(REF, "StuntCopter.Rsrc.appledouble"))
 
 
-def edge_divider_mask(ink):
-    """Pixels belonging to detached full-span divider lines at the cell edges.
-
-    The FullPaint sheet has layout lines between rows/columns that fall inside a
-    sprite's rect but aren't part of the sprite (separated by a blank gap). A
-    divider is a near-full row/column with a blank line just inward. We peel such
-    lines (and any blank lines) from each edge until we reach real content, so a
-    line touching the sprite is never mistaken for a divider.
-    """
-    h, w = ink.shape
-    clear = np.zeros_like(ink)
-
-    def peel(is_divider, is_blank, mark):
-        i = 0
-        while i < max(h, w) - 1:
-            if is_divider(i):
-                mark(i)
-            elif is_blank(i):
-                pass
-            else:
-                break
-            i += 1
-
-    peel(lambda i: ink[i].mean() >= 0.5 and ink[i + 1].mean() <= 0.1,
-         lambda i: ink[i].mean() == 0, lambda i: clear.__setitem__((i, slice(None)), True))
-    peel(lambda i: ink[h - 1 - i].mean() >= 0.5 and ink[h - 2 - i].mean() <= 0.1,
-         lambda i: ink[h - 1 - i].mean() == 0, lambda i: clear.__setitem__((h - 1 - i, slice(None)), True))
-    peel(lambda i: ink[:, i].mean() >= 0.5 and ink[:, i + 1].mean() <= 0.1,
-         lambda i: ink[:, i].mean() == 0, lambda i: clear.__setitem__((slice(None), i), True))
-    peel(lambda i: ink[:, w - 1 - i].mean() >= 0.5 and ink[:, w - 2 - i].mean() <= 0.1,
-         lambda i: ink[:, w - 1 - i].mean() == 0, lambda i: clear.__setitem__((slice(None), w - 1 - i), True))
-    return clear
+def pict(pid):
+    bits, _ = decode_pict(get_pict(rf, pid))  # HxW bool, True = black ink
+    return bits
 
 
-def remove_border_specks(ink, max_size=3):
-    """Erase tiny ink blobs that touch the cell border — 1-2px bleed from the
-    neighbouring sprite in the tightly-packed source sheet. Interior detail
-    (e.g. cloud shading dots) never touches the border, so it is preserved."""
-    from collections import deque
-
-    h, w = ink.shape
-    seen = np.zeros_like(ink)
-    for sy in range(h):
-        for sx in range(w):
-            if not ink[sy, sx] or seen[sy, sx]:
-                continue
-            queue, comp, touches = deque([(sy, sx)]), [], False
-            seen[sy, sx] = True
-            while queue:
-                y, x = queue.popleft()
-                comp.append((y, x))
-                if y in (0, h - 1) or x in (0, w - 1):
-                    touches = True
-                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                    ny, nx = y + dy, x + dx
-                    if 0 <= ny < h and 0 <= nx < w and ink[ny, nx] and not seen[ny, nx]:
-                        seen[ny, nx] = True
-                        queue.append((ny, nx))
-            if touches and len(comp) <= max_size:
-                for y, x in comp:
-                    ink[y, x] = False
-    return ink
+COPTER, MAN, SCOREBOX = pict(128), pict(129), pict(130)
+CLOUD1, CLOUD2, CLOUD3 = pict(356), pict(357), pict(358)
 
 
-def remove_isolated_hlines(ink, min_fill=0.7, max_neighbor=0.2):
-    """Erase a full-width horizontal line that has (near-)empty rows both above
-    and below it -- a detached layout line, not a sprite's connected baseline."""
-    h = ink.shape[0]
-    for r in range(1, h - 1):
-        if (ink[r].mean() >= min_fill
-                and ink[r - 1].mean() <= max_neighbor
-                and ink[r + 1].mean() <= max_neighbor):
-            ink[r] = False
-    return ink
+def whole(bits):
+    return (bits, 0, 0, bits.shape[1], bits.shape[0])
 
 
-def silhouette(rect):
-    """Extract an offscreen rect as white-on-transparent RGBA, with detached
-    layout divider lines and border-bleed specks erased."""
-    x0, y0, x1, y1 = rect
-    region = np.array(sheet.crop((x0 + OX, y0 + OY, x1 + OX, y1 + OY)))
-    ink = region < 128
-    ink &= ~edge_divider_mask(ink)
-    ink = remove_isolated_hlines(ink)
-    ink = remove_border_specks(ink)
-    rgba = np.zeros((*ink.shape, 4), dtype=np.uint8)
-    rgba[ink] = (255, 255, 255, 255)
+# name -> (source bits, x, y, w, h), offsets from CreateOffScreenRects.
+S = {}
+for i in range(3):
+    S[f"copter_{i+1}"] = (COPTER, i * 74, 0, 74, 26)
+    S[f"wagon_{i+1}"] = (COPTER, i * 73, 26, 73, 22)
+for i in range(7):
+    S[f"flip_{i+1:02d}"] = (COPTER, i * 32, 48, 32, 41)
+    S[f"flip_{i+8:02d}"] = (COPTER, i * 32, 89, 32, 41)
+_TOP = ["man_hang", "man_drop1", "man_drop2", "man_drop3", "man_drop4", "man_drop5", "man_thumbup"]
+_BOT = ["man_splat1", "man_splat2", "man_splat3", "man_splat4", "man_splat5", "man_splat6", "man_thumbdown"]
+for i in range(7):
+    S[_TOP[i]] = (MAN, i * 14, 0, 14, 16)
+    S[_BOT[i]] = (MAN, i * 14, 16, 14, 16)
+for i in range(5):
+    S[f"num_{i}"] = (MAN, i * 20, 32, 20, 15)
+    S[f"num_{i+5}"] = (MAN, i * 20, 47, 20, 15)
+S["cross"] = (MAN, 0, 62, 81, 81)
+S["man_in_wagon"] = (MAN, 81, 62, 28, 10)
+S["driver"] = (MAN, 81, 72, 40, 22)
+S["horse_dead"] = (MAN, 81, 94, 29, 22)
+S["cloud_left"] = whole(CLOUD3)
+S["cloud_bottom"] = whole(CLOUD2)
+S["cloud_right"] = whole(CLOUD1)
+S["scorebox"] = whole(SCOREBOX)
+
+
+def silhouette(spec):
+    bits, x, y, w, h = spec
+    sub = bits[y:y + h, x:x + w]
+    rgba = np.zeros((*sub.shape, 4), dtype=np.uint8)
+    rgba[sub] = (255, 255, 255, 255)
     return Image.fromarray(rgba, "RGBA")
 
 
 def ident(name):
-    """sprite key -> CamelCase enum variant (copter_1 -> Copter1)."""
     return "".join(part.capitalize() for part in re.split(r"[_]+", name))
 
 
-# Extract every sprite, then shelf-pack tallest-first for a tight atlas.
-sprites = []
-for name in sorted(meta):
-    img = silhouette(meta[name]["offscreen_rect"])
-    sprites.append((name, img))
+sprites = [(n, silhouette(S[n])) for n in sorted(S)]
 sprites.sort(key=lambda s: (-s[1].height, s[0]))
 
-placements = {}  # name -> (x, y, w, h)
+placements = {}
 cur_x, cur_y, row_h = PAD, PAD, 0
 for name, img in sprites:
     if cur_x + img.width + PAD > ATLAS_W:
@@ -145,18 +96,13 @@ for name, img in sprites:
 atlas.save(os.path.join(ASSETS, "atlas.png"))
 print("atlas.png", atlas.size)
 
-# Emit the typed Sprite enum + packed source rects (atlas pixel coords).
-variants = [(ident(n), n) for n in sorted(meta)]
+variants = [(ident(n), n) for n in sorted(S)]
 lines = [
-    "// @generated by scripts/gen_atlas.py from reference/stuntcopter/png/sprites.json",
+    "// @generated by scripts/gen_atlas.py from the original PICT resources.",
     "// Do not edit by hand. Regenerate to change sprite rects.",
     "//",
-    "// Each rect is a padded source rectangle within `atlas.png` (packed with a",
-    "// transparent gutter so nearest-neighbour sampling never bleeds neighbours).",
-    "//",
-    "// The full sprite set is generated up front; not every variant is drawn yet.",
+    "// Each rect is a padded source rectangle within `atlas.png`.",
     "#![allow(dead_code)]",
-    "// Generated exhaustive match over every sprite; length is inherent.",
     "#![allow(clippy::too_many_lines)]",
     "",
     "use macroquad::math::Rect;",
@@ -166,25 +112,34 @@ lines = [
     "pub enum Sprite {",
 ]
 for var, orig in variants:
-    lines.append(f"    /// `{orig}`")
-    lines.append(f"    {var},")
-lines.append("}")
-lines.append("")
-lines.append("impl Sprite {")
-lines.append("    /// Source rectangle of this sprite within the atlas texture, in pixels.")
-lines.append("    #[must_use]")
-lines.append("    #[rustfmt::skip]")
-lines.append("    pub const fn rect(self) -> Rect {")
-lines.append("        match self {")
+    lines += [f"    /// `{orig}`", f"    {var},"]
+lines += ["}", "", "impl Sprite {",
+          "    /// Source rectangle of this sprite within the atlas texture, in pixels.",
+          "    #[must_use]", "    #[rustfmt::skip]", "    pub const fn rect(self) -> Rect {",
+          "        match self {"]
 for var, orig in variants:
     x, y, w, h = placements[orig]
-    lines.append(
-        f"            Self::{var} => Rect {{ x: {x}.0, y: {y}.0, w: {w}.0, h: {h}.0 }},"
-    )
-lines.append("        }")
-lines.append("    }")
-lines.append("}")
-lines.append("")
-
-open(os.path.join(SRC, "atlas.rs"), "w", newline="\n").write("\n".join(lines))
+    lines.append(f"            Self::{var} => Rect {{ x: {x}.0, y: {y}.0, w: {w}.0, h: {h}.0 }},")
+lines += ["        }", "    }", "}", ""]
+open(os.path.join(SRC, "atlas.rs"), "w", newline="\n", encoding="utf-8").write("\n".join(lines))
 print("src/atlas.rs", len(variants), "sprites,", "atlas", ATLAS_W, "x", atlas_h)
+
+# Contact sheet for verification.
+cols = 8
+cw, ch = 92, 92
+rows = (len(variants) + cols - 1) // cols
+sheet = Image.new("RGB", (cols * cw, rows * ch), (210, 210, 210))
+from PIL import ImageDraw
+d = ImageDraw.Draw(sheet)
+comp = Image.alpha_composite(Image.new("RGBA", atlas.size, (210, 210, 210, 255)), atlas).convert("RGB")
+for idx, (var, orig) in enumerate(variants):
+    x, y, w, h = placements[orig]
+    sp = comp.crop((x, y, x + w, y + h))
+    sc = min((cw - 6) / w, (ch - 14) / h, 4)
+    sp = sp.resize((max(1, int(w * sc)), max(1, int(h * sc))), Image.NEAREST)
+    cx, cy = (idx % cols) * cw, (idx // cols) * ch
+    sheet.paste(sp, (cx + 3, cy + 2))
+    d.rectangle([cx, cy, cx + cw - 1, cy + ch - 1], outline=(150, 150, 150))
+    d.text((cx + 2, cy + ch - 11), orig, fill=(150, 0, 0))
+sheet.save(r"C:\Users\MikaelBeyene\AppData\Local\Temp\claude\D--training-opensc\68a8ed9d-2ec2-4fb7-9ee2-ba32e48ffa1f\scratchpad\contact_pict.png")
+print("contact sheet saved")
