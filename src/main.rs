@@ -95,16 +95,13 @@ fn draw_scene(assets: &Assets, world: &World) {
     );
 }
 
-/// Route panics and logs to the browser console on web (via `sapp-console-log`,
-/// which needs no wasm-bindgen) and to stderr on native. Without this, a web
-/// panic is a silent blank canvas.
+/// Route panics to the browser console on web (via macroquad/miniquad's
+/// re-exported `error!`, which needs no wasm-bindgen) and to stderr on native.
+/// Without this, a web panic is a silent blank canvas.
 fn install_panic_logging() {
-    #[cfg(target_arch = "wasm32")]
-    let _ = sapp_console_log::init_with_level(log::Level::Debug);
-
     std::panic::set_hook(Box::new(|info| {
         #[cfg(target_arch = "wasm32")]
-        log::error!("{info}");
+        macroquad::miniquad::error!("{info}");
         #[cfg(not(target_arch = "wasm32"))]
         eprintln!("{info}");
     }));

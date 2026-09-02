@@ -11,14 +11,9 @@ keywords = ["game", "macroquad", "wasm", "retro"]
 categories = ["games"]
 
 [dependencies]
+# macroquad enables miniquad's `log-impl`, which routes panics and its `error!`/
+# `info!` macros to the browser console on wasm (no wasm-bindgen needed).
 macroquad = "=0.4.16"
-log = "0.4"
-
-# On the web, panics otherwise abort into a blank canvas with no message. This
-# routes `log`/panic output to the browser console WITHOUT pulling in
-# wasm-bindgen (macroquad/miniquad use their own JS interop).
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-sapp-console-log = "0.1"
 
 # Native builds keep the default dev/release profiles (fast incremental compiles,
 # `panic = unwind` so `#[should_panic]` tests work).
