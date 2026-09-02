@@ -3,6 +3,7 @@
 mod assets;
 mod atlas;
 mod canvas;
+mod cloud;
 mod config;
 mod copter;
 mod draw;
@@ -70,6 +71,13 @@ async fn main() {
 fn draw_scene(assets: &Assets, world: &World) {
     clear_background(theme::SKY);
 
+    draw::sprite(
+        assets,
+        world.cloud.sprite(),
+        world.cloud.x as f32,
+        world.cloud.y as f32,
+        theme::INK,
+    );
     draw::sprite(
         assets,
         world.wagon.sprite(),

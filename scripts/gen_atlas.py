@@ -90,6 +90,18 @@ def remove_border_specks(ink, max_size=3):
     return ink
 
 
+def remove_isolated_hlines(ink, min_fill=0.7, max_neighbor=0.2):
+    """Erase a full-width horizontal line that has (near-)empty rows both above
+    and below it -- a detached layout line, not a sprite's connected baseline."""
+    h = ink.shape[0]
+    for r in range(1, h - 1):
+        if (ink[r].mean() >= min_fill
+                and ink[r - 1].mean() <= max_neighbor
+                and ink[r + 1].mean() <= max_neighbor):
+            ink[r] = False
+    return ink
+
+
 def silhouette(rect):
     """Extract an offscreen rect as white-on-transparent RGBA, with detached
     layout divider lines and border-bleed specks erased."""
@@ -97,6 +109,7 @@ def silhouette(rect):
     region = np.array(sheet.crop((x0 + OX, y0 + OY, x1 + OX, y1 + OY)))
     ink = region < 128
     ink &= ~edge_divider_mask(ink)
+    ink = remove_isolated_hlines(ink)
     ink = remove_border_specks(ink)
     rgba = np.zeros((*ink.shape, 4), dtype=np.uint8)
     rgba[ink] = (255, 255, 255, 255)

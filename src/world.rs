@@ -7,6 +7,9 @@
 //! What it is not: rendering, input sampling, or timing — the caller's job.
 //! `tick` is deterministic given the same intents.
 
+use macroquad::rand::gen_range;
+
+use crate::cloud::Cloud;
 use crate::config::{
     COPTER_H, GRAVITY_START, GROUND_Y, MAN_H, MAN_HANG_OFFSET, MEN_PER_LEVEL, WAGON_H,
     WAGON_SPEED_START,
@@ -19,6 +22,7 @@ use crate::wagon::Wagon;
 pub struct World {
     pub copter: Copter,
     pub wagon: Wagon,
+    pub cloud: Cloud,
     pub stuntman: Stuntman,
     pub score: i32,
     pub hiscore: i32,
@@ -35,6 +39,7 @@ impl Default for World {
         Self {
             copter: Copter::default(),
             wagon: Wagon::default(),
+            cloud: Cloud::default(),
             stuntman: Stuntman::default(),
             score: 0,
             hiscore: 0,
@@ -62,6 +67,7 @@ impl World {
     pub fn tick(&mut self, intents: &Intents) {
         self.copter.tick(intents.req_dh, intents.req_dv);
         self.wagon.tick();
+        self.cloud.tick();
         self.step_stuntman(intents.drop);
     }
 
@@ -85,6 +91,10 @@ impl World {
             }
             Stuntman::Falling(ref mut faller) => {
                 faller.fall(self.gravity);
+                // A gust of wind while falling through the cloud.
+                if self.cloud.covers(faller.x, faller.y) {
+                    faller.x += gen_range(-2, 3);
+                }
                 if faller.y + MAN_H > GROUND_Y - WAGON_H {
                     Next::Land(classify(faller.x, self.wagon.x), faller.height_of_drop)
                 } else {
