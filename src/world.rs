@@ -55,6 +55,17 @@ impl Default for World {
     }
 }
 
+/// A snapshot of the interpolatable positions, taken before each tick so the
+/// renderer can smooth motion between the fixed 30 Hz ticks and the display's
+/// refresh rate.
+#[derive(Clone, Copy)]
+pub struct RenderState {
+    pub copter: (i32, i32),
+    pub wagon_x: i32,
+    pub cloud: (i32, i32),
+    pub faller: Option<(i32, i32)>,
+}
+
 /// A pending stuntman transition, computed while the state is borrowed and
 /// applied afterwards so self-mutation never overlaps the borrow.
 #[derive(Clone, Copy)]
@@ -96,6 +107,20 @@ impl World {
     #[must_use]
     pub fn current_man(&self) -> usize {
         (MEN_PER_LEVEL - self.men_left).clamp(0, MEN_PER_LEVEL - 1) as usize
+    }
+
+    /// Snapshot of interpolatable positions for smooth rendering.
+    #[must_use]
+    pub fn render_state(&self) -> RenderState {
+        RenderState {
+            copter: (self.copter.x, self.copter.y),
+            wagon_x: self.wagon.x,
+            cloud: (self.cloud.x, self.cloud.y),
+            faller: match &self.stuntman {
+                Stuntman::Falling(f) => Some((f.x, f.y)),
+                _ => None,
+            },
+        }
     }
 
     fn step_stuntman(&mut self, drop: bool) {

@@ -52,9 +52,11 @@ fn draw_lives(assets: &Assets, world: &World) {
             None => {}
         }
     }
+    // Invert the current man's cell: a black fill bounded to the 14x16 cell (no
+    // overshoot into the neighbouring dotted-grid cells), with the man in white.
     let x = (SB_X + HUD_MAN0.0 + world.current_man() as i32 * HUD_MAN_DX) as f32;
     let y = (SB_Y + HUD_MAN0.1) as f32;
-    draw_rectangle(x - 1.0, y - 1.0, MAN_W as f32 + 2.0, MAN_H as f32, INK);
+    draw_rectangle(x, y, MAN_W as f32, MAN_H as f32, INK);
     draw::sprite(assets, Sprite::ManHang, x, y, SKY);
 }
 

@@ -22,7 +22,7 @@ use canvas::Canvas;
 use config::{GROUND_Y, MAN_H, TICK_PERIOD, WAGON_H};
 use macroquad::prelude::*;
 use stuntman::{Outcome, Stuntman};
-use world::World;
+use world::{RenderState, World};
 
 fn window_conf() -> Conf {
     Conf {
@@ -44,6 +44,7 @@ async fn main() {
     let assets = Assets::load();
     let canvas = Canvas::new();
     let mut world = World::default();
+    let mut prev = world.render_state();
     let mut accumulator = 0.0f32;
 
     loop {
@@ -55,24 +56,37 @@ async fn main() {
         // first tick so a multi-tick frame can't fire it twice.
         let mut intents = input::gather(&canvas);
         while accumulator >= TICK_PERIOD {
+            prev = world.render_state();
             world.tick(&intents);
             intents.drop = false;
             accumulator -= TICK_PERIOD;
         }
+        // Interpolate render positions between the last two ticks so motion is
+        // smooth at the display's refresh rate, not just the 30 Hz sim rate.
+        let alpha = (accumulator / TICK_PERIOD).clamp(0.0, 1.0);
 
         canvas.begin();
-        draw_scene(&assets, &world);
+        draw_scene(&assets, &world, prev, alpha);
         canvas.end();
         canvas.present(theme::BARS);
         next_frame().await;
     }
 }
 
-/// Draw one frame of the world in logical canvas coordinates.
-fn draw_scene(assets: &Assets, world: &World) {
-    clear_background(theme::SKY);
+/// Interpolate an integer coordinate between the previous and current tick,
+/// rounded to a whole pixel (crisp), snapping across wraps/teleports so a
+/// wrapping sprite never slides across the screen.
+fn lerp(prev: i32, cur: i32, alpha: f32) -> f32 {
+    if (cur - prev).abs() > 32 {
+        cur as f32
+    } else {
+        (prev as f32 + (cur - prev) as f32 * alpha).round()
+    }
+}
 
-    // The ground line the wagon rolls along, full width.
+/// Draw one frame, interpolating positions between ticks for smooth motion.
+fn draw_scene(assets: &Assets, world: &World, prev: RenderState, alpha: f32) {
+    clear_background(theme::SKY);
     draw_line(
         0.0,
         GROUND_Y as f32,
@@ -81,49 +95,60 @@ fn draw_scene(assets: &Assets, world: &World) {
         1.0,
         theme::INK,
     );
-    draw::sprite(
-        assets,
-        world.cloud.sprite(),
-        world.cloud.x as f32,
-        world.cloud.y as f32,
-        theme::INK,
+
+    let cur = world.render_state();
+    let cloud = (
+        lerp(prev.cloud.0, cur.cloud.0, alpha),
+        lerp(prev.cloud.1, cur.cloud.1, alpha),
     );
+    let wagon_x = lerp(prev.wagon_x, cur.wagon_x, alpha);
+    let copter = (
+        lerp(prev.copter.0, cur.copter.0, alpha),
+        lerp(prev.copter.1, cur.copter.1, alpha),
+    );
+
+    draw::sprite(assets, world.cloud.sprite(), cloud.0, cloud.1, theme::INK);
     draw::sprite(
         assets,
         world.wagon.sprite(),
-        world.wagon.x as f32,
+        wagon_x,
         (GROUND_Y - WAGON_H) as f32,
         theme::INK,
     );
     draw::sprite(
         assets,
         world.copter.sprite(),
-        world.copter.x as f32,
-        world.copter.y as f32,
+        copter.0,
+        copter.1,
         theme::INK,
     );
-    draw_stuntman(assets, world);
+    draw_stuntman(assets, world, prev, alpha, copter, wagon_x);
     hud::draw(assets, world);
 }
 
-/// Draw the stuntman for the current phase.
-fn draw_stuntman(assets: &Assets, world: &World) {
+/// Draw the stuntman for the current phase, tracking the interpolated copter/wagon.
+fn draw_stuntman(
+    assets: &Assets,
+    world: &World,
+    prev: RenderState,
+    alpha: f32,
+    copter: (f32, f32),
+    wagon_x: f32,
+) {
     let ink = theme::INK;
-    let wagon_x = world.wagon.x as f32;
     let wagon_y = (GROUND_Y - WAGON_H) as f32;
     match &world.stuntman {
         Stuntman::Hanging => {
-            let (x, y) = world.hang_pos();
-            draw::sprite(assets, Sprite::ManHang, x as f32, y as f32, ink);
+            let x = copter.0 + config::MAN_HANG_OFFSET.0 as f32;
+            let y = copter.1 + config::MAN_HANG_OFFSET.1 as f32;
+            draw::sprite(assets, Sprite::ManHang, x, y, ink);
         }
         Stuntman::Falling(faller) => {
-            draw::sprite(
-                assets,
-                faller.sprite(),
-                faller.x as f32,
-                faller.y as f32,
-                ink,
-            );
+            let (x, y) = match prev.faller {
+                Some(p) => (lerp(p.0, faller.x, alpha), lerp(p.1, faller.y, alpha)),
+                None => (faller.x as f32, faller.y as f32),
+            };
+            draw::sprite(assets, faller.sprite(), x, y, ink);
         }
         Stuntman::Held(held) => match held.outcome {
             Outcome::Landed => {
