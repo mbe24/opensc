@@ -97,15 +97,21 @@ fn centered(assets: &Assets, s: &str, y_rel: i32) {
     draw::text(assets, s, x as f32, (SB_Y + y_rel) as f32, INK);
 }
 
-/// The yoke crosshair, drifting with the copter's velocity inside the yoke window.
+/// The yoke: a double-line crosshair with a center hub (the original's `OffCross`
+/// reticle), whose arms span the yoke window and shift with the copter's velocity.
 fn draw_yoke(world: &World) {
     let (vx, vy) = world.copter.velocity();
-    let cx = (SB_X + HUD_YOKE_WIN.0 + HUD_YOKE_WIN.2 / 2 + vx) as f32;
-    let cy = (SB_Y + HUD_YOKE_WIN.1 + HUD_YOKE_WIN.3 / 2 + vy) as f32;
-    let r = 15.0;
-    draw_line(cx - r, cy, cx + r, cy, 1.0, INK);
-    draw_line(cx, cy - r, cx, cy + r, 1.0, INK);
-    draw_circle_lines(cx, cy, 3.0, 1.0, INK);
+    let (wx, wy, ww, wh) = HUD_YOKE_WIN;
+    let (l, t) = ((SB_X + wx) as f32, (SB_Y + wy) as f32);
+    let (r, b) = (l + ww as f32, t + wh as f32);
+    let cx = l + ww as f32 / 2.0 + vx as f32;
+    let cy = t + wh as f32 / 2.0 + vy as f32;
+    for d in [-1.0, 1.0] {
+        draw_line(l, cy + d, r, cy + d, 1.0, INK); // double horizontal arm
+        draw_line(cx + d, t, cx + d, b, 1.0, INK); // double vertical arm
+    }
+    draw_circle_lines(cx, cy, 3.5, 1.0, INK);
+    draw_circle(cx, cy, 1.0, INK);
 }
 
 fn digit_sprite(d: i32) -> Sprite {
