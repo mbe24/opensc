@@ -13,9 +13,9 @@ use macroquad::prelude::*;
 use crate::assets::Assets;
 use crate::atlas::Sprite;
 use crate::config::{
-    GRAVITY_WORDS, HUD_BAND_TOP, HUD_DIGIT_DX, HUD_GRAV_ROW, HUD_HEIGHT, HUD_HISCORE_DY, HUD_MAN0,
-    HUD_MAN_DX, HUD_NUM0, HUD_THUMBDOWN_DY, HUD_THUMBUP_DY, HUD_VALUE_X0, HUD_VALUE_X1,
-    HUD_WAGON_ROW, HUD_YOKE_WIN, MAN_H, MAN_W, MEN_PER_LEVEL, SB_H, SB_W, SB_X, SB_Y, WAGON_WORDS,
+    HUD_BAND_TOP, HUD_DIGIT_DX, HUD_GRAV_ROW, HUD_HEIGHT, HUD_HISCORE_DY, HUD_MAN0, HUD_MAN_DX,
+    HUD_NUM0, HUD_THUMBDOWN_DY, HUD_THUMBUP_DY, HUD_VALUE_X0, HUD_VALUE_X1, HUD_WAGON_ROW,
+    HUD_YOKE_WIN, MAN_H, MAN_W, MEN_PER_LEVEL, SB_H, SB_W, SB_X, SB_Y,
 };
 use crate::draw;
 use crate::theme::{INK, SKY};
@@ -78,8 +78,8 @@ fn draw_digits(assets: &Assets, score: i32, y_rel: i32) {
 
 /// Height number (left-aligned), and the centered wagon/gravity words.
 fn draw_status(assets: &Assets, world: &World) {
-    let wagon = WAGON_WORDS[(world.wagon.speed - 1).clamp(0, 2) as usize];
-    let gravity = GRAVITY_WORDS[(world.gravity - 1).clamp(0, 3) as usize];
+    let wagon = world.progression.wagon.word();
+    let gravity = world.progression.gravity.word();
     draw::text(
         assets,
         &world.height().to_string(),

@@ -1,8 +1,9 @@
 //! The game world.
 //!
 //! What it is: the mutable simulation state and the single fixed-timestep `tick`
-//! that advances it — the copter, wagon, and stuntman, plus score, lives, level,
-//! and gravity. It orchestrates the stuntman state machine and applies outcomes.
+//! that advances it — the copter, wagon, cloud, and stuntman, plus score, lives,
+//! and level progression. It orchestrates the stuntman state machine and applies
+//! outcomes.
 //!
 //! What it is not: rendering, input sampling, or timing — the caller's job.
 //! `tick` is deterministic given the same intents.
@@ -10,28 +11,30 @@
 use macroquad::rand::gen_range;
 
 use crate::cloud::Cloud;
-use crate::config::{
-    COPTER_H, GRAVITY_START, GROUND_Y, MAN_H, MAN_HANG_OFFSET, MEN_PER_LEVEL, WAGON_H,
-    WAGON_SPEED_START,
-};
+use crate::config::{COPTER_H, GROUND_Y, MAN_H, MAN_HANG_OFFSET, MEN_PER_LEVEL, WAGON_H};
 use crate::copter::Copter;
 use crate::input::Intents;
+use crate::level::Progression;
 use crate::stuntman::{classify, Faller, Held, Outcome, Stuntman, HOLD_TICKS};
 use crate::wagon::Wagon;
+
+/// Ticks between cloud scroll steps — the original scrolls it on 1 of its 3 loop
+/// phases, i.e. one pixel every three ticks.
+const CLOUD_TICKS: u8 = 3;
 
 pub struct World {
     pub copter: Copter,
     pub wagon: Wagon,
     pub cloud: Cloud,
     pub stuntman: Stuntman,
+    pub progression: Progression,
     pub score: i32,
     pub hiscore: i32,
-    pub level: i32,
-    pub gravity: i32,
     pub men_left: i32,
     pub good_jumps: i32,
     /// Per-man result for this level: `Some(true)` landed, `Some(false)` failed.
     pub results: [Option<bool>; MEN_PER_LEVEL as usize],
+    phase: u8,
 }
 
 impl Default for World {
@@ -41,13 +44,13 @@ impl Default for World {
             wagon: Wagon::default(),
             cloud: Cloud::default(),
             stuntman: Stuntman::default(),
+            progression: Progression::default(),
             score: 0,
             hiscore: 0,
-            level: 1,
-            gravity: GRAVITY_START,
             men_left: MEN_PER_LEVEL,
             good_jumps: 0,
             results: [None; MEN_PER_LEVEL as usize],
+            phase: 0,
         }
     }
 }
@@ -66,8 +69,11 @@ impl World {
     /// Advance the simulation by exactly one fixed tick.
     pub fn tick(&mut self, intents: &Intents) {
         self.copter.tick(intents.req_dh, intents.req_dv);
-        self.wagon.tick();
-        self.cloud.tick();
+        self.wagon.tick(self.progression.wagon.px());
+        self.phase = (self.phase + 1) % CLOUD_TICKS;
+        if self.phase == 0 {
+            self.cloud.tick();
+        }
         self.step_stuntman(intents.drop);
     }
 
@@ -80,6 +86,18 @@ impl World {
         )
     }
 
+    /// Current copter height above the ground, as shown in the HUD.
+    #[must_use]
+    pub fn height(&self) -> i32 {
+        (GROUND_Y - (self.copter.y + COPTER_H)).max(0)
+    }
+
+    /// Zero-based index of the man currently in play (0..=4).
+    #[must_use]
+    pub fn current_man(&self) -> usize {
+        (MEN_PER_LEVEL - self.men_left).clamp(0, MEN_PER_LEVEL - 1) as usize
+    }
+
     fn step_stuntman(&mut self, drop: bool) {
         let next = match self.stuntman {
             Stuntman::Hanging => {
@@ -90,10 +108,13 @@ impl World {
                 }
             }
             Stuntman::Falling(ref mut faller) => {
-                faller.fall(self.gravity);
-                // A gust of wind while falling through the cloud.
+                // Behind a cloud: fall a fixed 1px with a random wind gust;
+                // otherwise fall at gravity.
                 if self.cloud.covers(faller.x, faller.y) {
-                    faller.x += gen_range(-2, 3);
+                    faller.fall(1);
+                    faller.gust(gen_range(-2, 3));
+                } else {
+                    faller.fall(self.progression.gravity.px());
                 }
                 if faller.y + MAN_H > GROUND_Y - WAGON_H {
                     Next::Land(classify(faller.x, self.wagon.x), faller.height_of_drop)
@@ -136,11 +157,10 @@ impl World {
 
     fn score_outcome(&mut self, outcome: Outcome, height: i32) {
         // Record this man's result before `men_left` is touched below.
-        let man = self.current_man();
-        self.results[man] = Some(matches!(outcome, Outcome::Landed));
+        self.results[self.current_man()] = Some(matches!(outcome, Outcome::Landed));
         match outcome {
             Outcome::Landed => {
-                self.score += self.level * height;
+                self.score += self.progression.level * height;
                 self.good_jumps += 1;
                 self.hiscore = self.hiscore.max(self.score);
             }
@@ -148,18 +168,6 @@ impl World {
             Outcome::HitDriver | Outcome::HitHorse => self.men_left = 1,
             Outcome::Splat => {}
         }
-    }
-
-    /// Zero-based index of the man currently in play (0..=4).
-    #[must_use]
-    pub fn current_man(&self) -> usize {
-        (MEN_PER_LEVEL - self.men_left).clamp(0, MEN_PER_LEVEL - 1) as usize
-    }
-
-    /// Current copter height above the ground, as shown in the HUD.
-    #[must_use]
-    pub fn height(&self) -> i32 {
-        (GROUND_Y - (self.copter.y + COPTER_H)).max(0)
     }
 
     fn reset_man(&mut self) {
@@ -174,13 +182,7 @@ impl World {
     }
 
     fn advance_level(&mut self) {
-        self.level += 1;
-        if self.wagon.speed == WAGON_SPEED_MAX && self.gravity > 1 {
-            self.gravity -= 1;
-        }
-        if self.wagon.speed < WAGON_SPEED_MAX {
-            self.wagon.speed += 1;
-        }
+        self.progression.level_up();
         self.men_left = MEN_PER_LEVEL;
         self.good_jumps = 0;
         self.results = [None; MEN_PER_LEVEL as usize];
@@ -193,7 +195,3 @@ impl World {
         self.hiscore = hiscore;
     }
 }
-
-/// Wagon reaches this speed (GALLOP) before gravity starts easing.
-const WAGON_SPEED_MAX: i32 = 3;
-const _: () = assert!(WAGON_SPEED_START <= WAGON_SPEED_MAX);

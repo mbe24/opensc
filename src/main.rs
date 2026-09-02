@@ -10,6 +10,7 @@ mod draw;
 mod font;
 mod hud;
 mod input;
+mod level;
 mod stuntman;
 mod theme;
 mod wagon;

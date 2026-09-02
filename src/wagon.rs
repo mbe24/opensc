@@ -5,7 +5,7 @@
 //! from the wagon block of `AnimateOneLoop`.
 
 use crate::atlas::Sprite;
-use crate::config::{LOGICAL_W, WAGON_SPEED_START, WAGON_W};
+use crate::config::{LOGICAL_W, WAGON_W};
 
 /// Distance to jump back when wrapping off the right edge (`OffSetRect(..,-582,..)`).
 const WRAP_STRIDE: i32 = LOGICAL_W + WAGON_W - 3;
@@ -14,33 +14,22 @@ const WRAP_STRIDE: i32 = LOGICAL_W + WAGON_W - 3;
 /// as a flicker, so we slow the animation to a calmer trot.
 const ANIM_TICKS: u8 = 3;
 
+#[derive(Default)]
 pub struct Wagon {
     /// Left edge, logical pixels.
     pub x: i32,
-    /// Roll speed, px/tick (1..3 across levels).
-    pub speed: i32,
     /// Animation phase, 0..(`ANIM_TICKS` * 3).
     phase: u8,
 }
 
-impl Default for Wagon {
-    fn default() -> Self {
-        Self {
-            x: 0,
-            speed: WAGON_SPEED_START,
-            phase: 0,
-        }
-    }
-}
-
 impl Wagon {
-    /// Roll one tick, wrapping off the right edge.
-    pub fn tick(&mut self) {
+    /// Roll one tick at `speed` px, wrapping off the right edge.
+    pub fn tick(&mut self, speed: i32) {
         self.phase = (self.phase + 1) % (ANIM_TICKS * 3);
         if self.x > LOGICAL_W {
             self.x -= WRAP_STRIDE;
         } else {
-            self.x += self.speed;
+            self.x += speed;
         }
     }
 

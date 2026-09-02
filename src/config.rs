@@ -46,14 +46,10 @@ pub const COPTER_START: (i32, i32) = (212, 110);
 
 pub const WAGON_W: i32 = 73;
 pub const WAGON_H: i32 = 22;
-/// Slowest wagon speed (level 1), px/tick. Ramps 1->3 across levels.
-pub const WAGON_SPEED_START: i32 = 1;
 
 // --- Stuntman --------------------------------------------------------------
+// (Starting wagon speed / gravity live in `level::Progression`.)
 
-/// Fastest fall (level 1), px/tick. Ramps 4->1 across later levels (slower fall
-/// = harder timing).
-pub const GRAVITY_START: i32 = 4;
 pub const MAN_W: i32 = 14;
 pub const MAN_H: i32 = 16;
 /// The hanging man's offset from the copter's top-left (`CoptRect.left+36`,

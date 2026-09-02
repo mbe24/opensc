@@ -43,10 +43,16 @@ impl Faller {
         }
     }
 
-    /// Fall one tick and advance the tumble animation.
-    pub fn fall(&mut self, gravity: i32) {
-        self.y += gravity;
+    /// Fall `dy` pixels and advance the tumble animation. `dy` is gravity in open
+    /// air, but a fixed 1px while falling through a cloud.
+    pub fn fall(&mut self, dy: i32) {
+        self.y += dy;
         self.frame = (self.frame + 1) % 5;
+    }
+
+    /// Nudge horizontally (a wind gust behind a cloud).
+    pub fn gust(&mut self, dx: i32) {
+        self.x += dx;
     }
 
     #[must_use]
