@@ -80,24 +80,20 @@ pub const GROUND_Y: i32 = SCOREBOX_TOP - 4;
 /// Copter may not descend below this bottom edge (`WagonRect.top - 10`).
 pub const COPTER_BOTTOM_LIMIT: i32 = (GROUND_Y - WAGON_H) - 10;
 
-// --- HUD sub-positions, relative to the scorebox sprite's top-left ----------
-// From `OneTimeGameStuff` in the original.
+// --- HUD reconstruction: a full-width gray strip of white section boxes ------
+// `(x, width)` per section; every box spans `HUD_TOP..LOGICAL_H`.
 
-/// Width of the scorebox panel sprite.
-pub const SCOREBOX_W: i32 = 388;
-/// First score digit; step [`HUD_DIGIT_DX`] per digit, hiscore [`HUD_HISCORE_DY`] below.
-pub const HUD_SCORE_POS: (i32, i32) = (135, 10);
+pub const HUD_TOP: i32 = SCOREBOX_TOP;
+pub const HUD_H: i32 = LOGICAL_H - SCOREBOX_TOP;
+
+pub const HUD_FLIP_L: (i32, i32) = (2, 52);
+pub const HUD_YOKE_BOX: (i32, i32) = (56, 52);
+pub const HUD_MEN_BOX: (i32, i32) = (110, 92);
+pub const HUD_SCORE_BOX: (i32, i32) = (204, 138);
+pub const HUD_PANEL_BOX: (i32, i32) = (344, 116);
+pub const HUD_FLIP_R: (i32, i32) = (462, 48);
+
+/// Numeral cell width for the packed score digits.
 pub const HUD_DIGIT_DX: i32 = 21;
-pub const HUD_HISCORE_DY: i32 = 25;
-/// First life man; step [`HUD_MAN_DX`] per column, thumbs at these rows below.
-pub const HUD_MAN_POS: (i32, i32) = (54, 0);
-pub const HUD_MAN_DX: i32 = 15;
-pub const HUD_THUMB_UP_DY: i32 = 17;
-pub const HUD_THUMB_DOWN_DY: i32 = 34;
-/// Text baselines for the right-hand status panel.
-pub const HUD_HEIGHT_POS: (i32, i32) = (SCOREBOX_W - 48, 12);
-pub const HUD_WAGON_POS: (i32, i32) = (SCOREBOX_W - 62, 30);
-pub const HUD_GRAV_POS: (i32, i32) = (SCOREBOX_W - 62, 47);
-/// Centre of the far-left yoke box, and the crosshair arm length.
-pub const HUD_YOKE_CENTER: (i32, i32) = (26, 24);
-pub const HUD_YOKE_RADIUS: f32 = 16.0;
+/// Crosshair arm length inside the yoke box.
+pub const HUD_YOKE_RADIUS: f32 = 15.0;

@@ -17,7 +17,7 @@ mod world;
 use assets::Assets;
 use atlas::Sprite;
 use canvas::Canvas;
-use config::{GROUND_Y, MAN_H, SCOREBOX_TOP, TICK_PERIOD, WAGON_H};
+use config::{GROUND_Y, MAN_H, TICK_PERIOD, WAGON_H};
 use macroquad::prelude::*;
 use stuntman::{Outcome, Stuntman};
 use world::World;
@@ -70,13 +70,6 @@ async fn main() {
 fn draw_scene(assets: &Assets, world: &World) {
     clear_background(theme::SKY);
 
-    draw::sprite(
-        assets,
-        Sprite::Scorebox,
-        0.0,
-        SCOREBOX_TOP as f32,
-        theme::INK,
-    );
     draw::sprite(
         assets,
         world.wagon.sprite(),

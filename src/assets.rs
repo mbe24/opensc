@@ -6,6 +6,8 @@
 
 use macroquad::prelude::*;
 
+use crate::config::{HUD_H, LOGICAL_W};
+
 /// The packed atlas: every sprite as a white silhouette on transparency, so it
 /// can be tinted to any colour at draw time (see [`crate::atlas::Sprite`]).
 const ATLAS_PNG: &[u8] = include_bytes!("../assets/atlas.png");
@@ -17,6 +19,8 @@ const FONT_PNG: &[u8] = include_bytes!("../assets/font.png");
 pub struct Assets {
     pub atlas: Texture2D,
     pub font: Texture2D,
+    /// A 1-px-checkerboard gray tile, tinted and tiled for the HUD panel.
+    pub dither: Texture2D,
 }
 
 impl Assets {
@@ -26,8 +30,32 @@ impl Assets {
     pub fn load() -> Self {
         let atlas = Texture2D::from_file_with_format(ATLAS_PNG, Some(ImageFormat::Png));
         let font = Texture2D::from_file_with_format(FONT_PNG, Some(ImageFormat::Png));
-        atlas.set_filter(FilterMode::Nearest);
-        font.set_filter(FilterMode::Nearest);
-        Self { atlas, font }
+        for t in [&atlas, &font] {
+            t.set_filter(FilterMode::Nearest);
+        }
+        Self {
+            atlas,
+            font,
+            dither: hud_dither(),
+        }
     }
+}
+
+/// A full-width HUD-strip checkerboard of black/transparent pixels — drawn once
+/// behind the HUD, it reads as the original's 50% gray dither over the sky.
+fn hud_dither() -> Texture2D {
+    let (w, h) = (LOGICAL_W as u16, HUD_H as u16);
+    let mut img = Image::gen_image_color(w, h, Color::new(0.0, 0.0, 0.0, 0.0));
+    // 25% coverage — a light gray that keeps black content readable once the
+    // whole canvas is magnified.
+    for y in 0..u32::from(h) {
+        for x in 0..u32::from(w) {
+            if x % 2 == 0 && y % 2 == 0 {
+                img.set_pixel(x, y, BLACK);
+            }
+        }
+    }
+    let tex = Texture2D::from_image(&img);
+    tex.set_filter(FilterMode::Nearest);
+    tex
 }

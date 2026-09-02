@@ -13,9 +13,9 @@ from PIL import Image, ImageFont, ImageDraw
 ASSETS = r"D:\training\opensc\assets"
 SRC = r"D:\training\opensc\src"
 FONT_PATH = r"C:\Windows\Fonts\arialbd.ttf"
-SIZE = 14
-CELL_H = 15          # fixed cell height so all glyphs share a baseline
-BASELINE = 12        # y of the text baseline within the cell
+SIZE = 12
+CELL_H = 13          # fixed cell height so all glyphs share a baseline
+BASELINE = 10        # y of the text baseline within the cell
 PAD = 1
 ATLAS_W = 256
 
