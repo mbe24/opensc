@@ -129,6 +129,7 @@ lines.append("")
 lines.append("impl Sprite {")
 lines.append("    /// Source rectangle of this sprite within the atlas texture, in pixels.")
 lines.append("    #[must_use]")
+lines.append("    #[rustfmt::skip]")
 lines.append("    pub const fn rect(self) -> Rect {")
 lines.append("        match self {")
 for var, orig in variants:

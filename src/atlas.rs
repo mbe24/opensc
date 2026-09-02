@@ -123,6 +123,7 @@ pub enum Sprite {
 impl Sprite {
     /// Source rectangle of this sprite within the atlas texture, in pixels.
     #[must_use]
+    #[rustfmt::skip]
     pub const fn rect(self) -> Rect {
         match self {
             Self::CloudBottom => Rect { x: 231.0, y: 2.0, w: 210.0, h: 52.0 },
