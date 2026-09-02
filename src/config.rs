@@ -98,3 +98,6 @@ pub const HUD_THUMB_DOWN_DY: i32 = 34;
 pub const HUD_HEIGHT_POS: (i32, i32) = (SCOREBOX_W - 48, 12);
 pub const HUD_WAGON_POS: (i32, i32) = (SCOREBOX_W - 62, 30);
 pub const HUD_GRAV_POS: (i32, i32) = (SCOREBOX_W - 62, 47);
+/// Centre of the far-left yoke box, and the crosshair arm length.
+pub const HUD_YOKE_CENTER: (i32, i32) = (26, 24);
+pub const HUD_YOKE_RADIUS: f32 = 16.0;

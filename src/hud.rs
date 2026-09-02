@@ -12,8 +12,8 @@ use crate::assets::Assets;
 use crate::atlas::Sprite;
 use crate::config::{
     GRAVITY_WORDS, HUD_DIGIT_DX, HUD_GRAV_POS, HUD_HEIGHT_POS, HUD_HISCORE_DY, HUD_MAN_DX,
-    HUD_MAN_POS, HUD_SCORE_POS, HUD_THUMB_DOWN_DY, HUD_THUMB_UP_DY, HUD_WAGON_POS, MAN_H, MAN_W,
-    SCOREBOX_TOP, WAGON_WORDS,
+    HUD_MAN_POS, HUD_SCORE_POS, HUD_THUMB_DOWN_DY, HUD_THUMB_UP_DY, HUD_WAGON_POS, HUD_YOKE_CENTER,
+    HUD_YOKE_RADIUS, MAN_H, MAN_W, SCOREBOX_TOP, WAGON_WORDS,
 };
 use crate::draw;
 use crate::theme::INK;
@@ -28,6 +28,19 @@ pub fn draw(assets: &Assets, world: &World) {
     draw_digits(assets, world.hiscore, sx, sy + HUD_HISCORE_DY + top);
     draw_status(world, top);
     draw_lives(assets, world, top);
+    draw_yoke(world, top);
+}
+
+/// The far-left yoke: a crosshair that drifts with the copter's velocity, like
+/// the original's mouse-tracking control indicator.
+fn draw_yoke(world: &World, top: i32) {
+    let (vx, vy) = world.copter.velocity();
+    let cx = (HUD_YOKE_CENTER.0 + vx) as f32;
+    let cy = (HUD_YOKE_CENTER.1 + vy + top) as f32;
+    let r = HUD_YOKE_RADIUS;
+    draw_line(cx - r, cy, cx + r, cy, 1.0, INK);
+    draw_line(cx, cy - r, cx, cy + r, 1.0, INK);
+    draw_circle_lines(cx, cy, 3.0, 1.0, INK);
 }
 
 /// Draw a score as six numeral shapes; the one's digit is always 0, exactly as
@@ -82,20 +95,18 @@ fn draw_lives(assets: &Assets, world: &World, top: i32) {
             None => {}
         }
     }
+    // The man in play: an inverted cell (black box, white man), as in the original.
     let hx = (mx + world.current_man() as i32 * HUD_MAN_DX) as f32;
     let hy = (my + top) as f32;
-    draw_rectangle_lines(
-        hx - 1.0,
-        hy - 1.0,
-        MAN_W as f32 + 2.0,
-        MAN_H as f32 + 2.0,
-        1.0,
-        INK,
-    );
+    draw_rectangle(hx - 1.0, hy - 1.0, MAN_W as f32 + 2.0, MAN_H as f32, INK);
+    draw::sprite(assets, Sprite::ManHang, hx, hy, WHITE);
 }
 
+/// Faux-bold text (drawn twice, a pixel apart) to echo the original's bold HUD font.
 fn text(s: &str, pos: (i32, i32), top: i32) {
-    draw_text(s, pos.0 as f32, (pos.1 + top) as f32, FONT, INK);
+    let (x, y) = (pos.0 as f32, (pos.1 + top) as f32);
+    draw_text(s, x, y, FONT, INK);
+    draw_text(s, x + 1.0, y, FONT, INK);
 }
 
 fn digit_sprite(d: i32) -> Sprite {

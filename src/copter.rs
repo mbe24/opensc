@@ -66,6 +66,12 @@ impl Copter {
         }
     }
 
+    /// Current velocity (px/tick), for the HUD yoke indicator.
+    #[must_use]
+    pub fn velocity(&self) -> (i32, i32) {
+        (self.dh, self.dv)
+    }
+
     /// Current rotor sprite.
     #[must_use]
     pub fn sprite(&self) -> Sprite {
