@@ -5,6 +5,8 @@
   "description": "Web build tooling for OpenSC (the game itself is a Rust/macroquad crate).",
   "type": "module",
   "scripts": {
-    "build:web": "node scripts/build-web.mjs"
+    "build:web": "node scripts/build-web.mjs",
+    "serve": "node scripts/serve.mjs",
+    "dev": "node scripts/build-web.mjs && node scripts/serve.mjs"
   }
 }
