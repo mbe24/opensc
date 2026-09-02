@@ -10,18 +10,24 @@ use macroquad::prelude::*;
 /// can be tinted to any colour at draw time (see [`crate::atlas::Sprite`]).
 const ATLAS_PNG: &[u8] = include_bytes!("../assets/atlas.png");
 
+/// The 1-bit bitmap font atlas (see [`crate::font`]).
+const FONT_PNG: &[u8] = include_bytes!("../assets/font.png");
+
 /// Handles to every loaded asset. Built once at startup and passed by reference.
 pub struct Assets {
     pub atlas: Texture2D,
+    pub font: Texture2D,
 }
 
 impl Assets {
-    /// Decode the embedded PNG. Synchronous and infallible for embedded bytes,
-    /// but returns the texture ready to draw with crisp nearest-neighbour scaling.
+    /// Decode the embedded PNGs. Synchronous and infallible for embedded bytes;
+    /// returns textures ready to draw with crisp nearest-neighbour scaling.
     #[must_use]
     pub fn load() -> Self {
         let atlas = Texture2D::from_file_with_format(ATLAS_PNG, Some(ImageFormat::Png));
+        let font = Texture2D::from_file_with_format(FONT_PNG, Some(ImageFormat::Png));
         atlas.set_filter(FilterMode::Nearest);
-        Self { atlas }
+        font.set_filter(FilterMode::Nearest);
+        Self { atlas, font }
     }
 }

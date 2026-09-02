@@ -6,6 +6,7 @@ mod canvas;
 mod config;
 mod copter;
 mod draw;
+mod font;
 mod hud;
 mod input;
 mod stuntman;

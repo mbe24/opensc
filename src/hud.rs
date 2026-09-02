@@ -19,14 +19,12 @@ use crate::draw;
 use crate::theme::INK;
 use crate::world::World;
 
-const FONT: f32 = 13.0;
-
 pub fn draw(assets: &Assets, world: &World) {
     let top = SCOREBOX_TOP;
     let (sx, sy) = HUD_SCORE_POS;
     draw_digits(assets, world.score, sx, sy + top);
     draw_digits(assets, world.hiscore, sx, sy + HUD_HISCORE_DY + top);
-    draw_status(world, top);
+    draw_status(assets, world, top);
     draw_lives(assets, world, top);
     draw_yoke(world, top);
 }
@@ -60,12 +58,12 @@ fn draw_digits(assets: &Assets, score: i32, x: i32, y: i32) {
     }
 }
 
-fn draw_status(world: &World, top: i32) {
+fn draw_status(assets: &Assets, world: &World, top: i32) {
     let wagon = WAGON_WORDS[(world.wagon.speed - 1).clamp(0, 2) as usize];
     let gravity = GRAVITY_WORDS[(world.gravity - 1).clamp(0, 3) as usize];
-    text(&world.height().to_string(), HUD_HEIGHT_POS, top);
-    text(wagon, HUD_WAGON_POS, top);
-    text(gravity, HUD_GRAV_POS, top);
+    text(assets, &world.height().to_string(), HUD_HEIGHT_POS, top);
+    text(assets, wagon, HUD_WAGON_POS, top);
+    text(assets, gravity, HUD_GRAV_POS, top);
 }
 
 /// Thumbs for finished men plus a box around the one currently in play.
@@ -102,11 +100,10 @@ fn draw_lives(assets: &Assets, world: &World, top: i32) {
     draw::sprite(assets, Sprite::ManHang, hx, hy, WHITE);
 }
 
-/// Faux-bold text (drawn twice, a pixel apart) to echo the original's bold HUD font.
-fn text(s: &str, pos: (i32, i32), top: i32) {
-    let (x, y) = (pos.0 as f32, (pos.1 + top) as f32);
-    draw_text(s, x, y, FONT, INK);
-    draw_text(s, x + 1.0, y, FONT, INK);
+/// Sharp bitmap-font text. `pos.1` is a baseline-ish y; the font blits by cell
+/// top, so shift up to sit the glyphs on that line.
+fn text(assets: &Assets, s: &str, pos: (i32, i32), top: i32) {
+    draw::text(assets, s, pos.0 as f32, (pos.1 + top - 11) as f32, INK);
 }
 
 fn digit_sprite(d: i32) -> Sprite {
