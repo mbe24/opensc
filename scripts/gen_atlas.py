@@ -60,13 +60,44 @@ def edge_divider_mask(ink):
     return clear
 
 
+def remove_border_specks(ink, max_size=3):
+    """Erase tiny ink blobs that touch the cell border — 1-2px bleed from the
+    neighbouring sprite in the tightly-packed source sheet. Interior detail
+    (e.g. cloud shading dots) never touches the border, so it is preserved."""
+    from collections import deque
+
+    h, w = ink.shape
+    seen = np.zeros_like(ink)
+    for sy in range(h):
+        for sx in range(w):
+            if not ink[sy, sx] or seen[sy, sx]:
+                continue
+            queue, comp, touches = deque([(sy, sx)]), [], False
+            seen[sy, sx] = True
+            while queue:
+                y, x = queue.popleft()
+                comp.append((y, x))
+                if y in (0, h - 1) or x in (0, w - 1):
+                    touches = True
+                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    ny, nx = y + dy, x + dx
+                    if 0 <= ny < h and 0 <= nx < w and ink[ny, nx] and not seen[ny, nx]:
+                        seen[ny, nx] = True
+                        queue.append((ny, nx))
+            if touches and len(comp) <= max_size:
+                for y, x in comp:
+                    ink[y, x] = False
+    return ink
+
+
 def silhouette(rect):
     """Extract an offscreen rect as white-on-transparent RGBA, with detached
-    layout divider lines at the cell edges erased."""
+    layout divider lines and border-bleed specks erased."""
     x0, y0, x1, y1 = rect
     region = np.array(sheet.crop((x0 + OX, y0 + OY, x1 + OX, y1 + OY)))
     ink = region < 128
     ink &= ~edge_divider_mask(ink)
+    ink = remove_border_specks(ink)
     rgba = np.zeros((*ink.shape, 4), dtype=np.uint8)
     rgba[ink] = (255, 255, 255, 255)
     return Image.fromarray(rgba, "RGBA")
