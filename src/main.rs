@@ -7,6 +7,7 @@ mod config;
 mod copter;
 mod draw;
 mod input;
+mod stuntman;
 mod theme;
 mod wagon;
 mod world;
@@ -14,8 +15,9 @@ mod world;
 use assets::Assets;
 use atlas::Sprite;
 use canvas::Canvas;
-use config::{GROUND_Y, SCOREBOX_TOP, TICK_PERIOD, WAGON_H};
+use config::{GROUND_Y, MAN_H, SCOREBOX_TOP, TICK_PERIOD, WAGON_H};
 use macroquad::prelude::*;
+use stuntman::{Outcome, Stuntman};
 use world::World;
 
 fn window_conf() -> Conf {
@@ -87,6 +89,50 @@ fn draw_scene(assets: &Assets, world: &World) {
         world.copter.y as f32,
         theme::INK,
     );
+    draw_stuntman(assets, world);
+}
+
+/// Draw the stuntman for the current phase.
+fn draw_stuntman(assets: &Assets, world: &World) {
+    let ink = theme::INK;
+    let wagon_x = world.wagon.x as f32;
+    let wagon_y = (GROUND_Y - WAGON_H) as f32;
+    match &world.stuntman {
+        Stuntman::Hanging => {
+            let (x, y) = world.hang_pos();
+            draw::sprite(assets, Sprite::ManHang, x as f32, y as f32, ink);
+        }
+        Stuntman::Falling(faller) => {
+            draw::sprite(
+                assets,
+                faller.sprite(),
+                faller.x as f32,
+                faller.y as f32,
+                ink,
+            );
+        }
+        Stuntman::Held(held) => match held.outcome {
+            Outcome::Landed => {
+                draw::sprite(
+                    assets,
+                    Sprite::ManInWagon,
+                    wagon_x + 30.0,
+                    wagon_y - 6.0,
+                    ink,
+                );
+            }
+            Outcome::Splat => {
+                let y = (GROUND_Y - MAN_H) as f32;
+                draw::sprite(assets, Sprite::ManSplat1, held.x as f32, y, ink);
+            }
+            Outcome::HitDriver => {
+                draw::sprite(assets, Sprite::Driver, wagon_x + 30.0, wagon_y, ink);
+            }
+            Outcome::HitHorse => {
+                draw::sprite(assets, Sprite::HorseDead, wagon_x + 45.0, wagon_y, ink);
+            }
+        },
+    }
 }
 
 /// Route panics to the browser console on web (via macroquad/miniquad's

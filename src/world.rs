@@ -1,19 +1,57 @@
 //! The game world.
 //!
-//! What it is: the mutable simulation state and the single fixed-timestep
-//! `tick` that advances it. It owns the entities and applies player intents.
+//! What it is: the mutable simulation state and the single fixed-timestep `tick`
+//! that advances it — the copter, wagon, and stuntman, plus score, lives, level,
+//! and gravity. It orchestrates the stuntman state machine and applies outcomes.
 //!
-//! What it is not: rendering, input sampling, or timing — those are the
-//! caller's job. `tick` is deterministic given the same intents.
+//! What it is not: rendering, input sampling, or timing — the caller's job.
+//! `tick` is deterministic given the same intents.
 
+use crate::config::{
+    COPTER_H, GRAVITY_START, GROUND_Y, MAN_H, MAN_HANG_OFFSET, MEN_PER_LEVEL, WAGON_H,
+    WAGON_SPEED_START,
+};
 use crate::copter::Copter;
 use crate::input::Intents;
+use crate::stuntman::{classify, Faller, Held, Outcome, Stuntman, HOLD_TICKS};
 use crate::wagon::Wagon;
 
-#[derive(Default)]
 pub struct World {
     pub copter: Copter,
     pub wagon: Wagon,
+    pub stuntman: Stuntman,
+    pub score: i32,
+    pub hiscore: i32,
+    pub level: i32,
+    pub gravity: i32,
+    pub men_left: i32,
+    pub good_jumps: i32,
+}
+
+impl Default for World {
+    fn default() -> Self {
+        Self {
+            copter: Copter::default(),
+            wagon: Wagon::default(),
+            stuntman: Stuntman::default(),
+            score: 0,
+            hiscore: 0,
+            level: 1,
+            gravity: GRAVITY_START,
+            men_left: MEN_PER_LEVEL,
+            good_jumps: 0,
+        }
+    }
+}
+
+/// A pending stuntman transition, computed while the state is borrowed and
+/// applied afterwards so self-mutation never overlaps the borrow.
+#[derive(Clone, Copy)]
+enum Next {
+    Nothing,
+    StartFall,
+    Land(Outcome, i32),
+    ResetMan,
 }
 
 impl World {
@@ -21,7 +59,112 @@ impl World {
     pub fn tick(&mut self, intents: &Intents) {
         self.copter.tick(intents.req_dh, intents.req_dv);
         self.wagon.tick();
-        // Drop / stuntman / collision land in the next milestone; `intents.drop`
-        // is already latched and drained once per tick by the caller.
+        self.step_stuntman(intents.drop);
+    }
+
+    /// The hanging man's top-left, tracking the copter.
+    #[must_use]
+    pub fn hang_pos(&self) -> (i32, i32) {
+        (
+            self.copter.x + MAN_HANG_OFFSET.0,
+            self.copter.y + MAN_HANG_OFFSET.1,
+        )
+    }
+
+    fn step_stuntman(&mut self, drop: bool) {
+        let next = match self.stuntman {
+            Stuntman::Hanging => {
+                if drop {
+                    Next::StartFall
+                } else {
+                    Next::Nothing
+                }
+            }
+            Stuntman::Falling(ref mut faller) => {
+                faller.fall(self.gravity);
+                if faller.y + MAN_H > GROUND_Y - WAGON_H {
+                    Next::Land(classify(faller.x, self.wagon.x), faller.height_of_drop)
+                } else {
+                    Next::Nothing
+                }
+            }
+            Stuntman::Held(ref mut held) => {
+                if held.timer == 0 {
+                    Next::ResetMan
+                } else {
+                    held.timer -= 1;
+                    Next::Nothing
+                }
+            }
+        };
+        self.apply(next);
+    }
+
+    fn apply(&mut self, next: Next) {
+        match next {
+            Next::Nothing => {}
+            Next::StartFall => {
+                let (x, y) = self.hang_pos();
+                let height = GROUND_Y - (self.copter.y + COPTER_H);
+                self.stuntman = Stuntman::Falling(Faller::new(x, y, height));
+            }
+            Next::Land(outcome, height) => {
+                let x = self.hang_pos().0; // horizontal doesn't change during a fall
+                self.score_outcome(outcome, height);
+                self.stuntman = Stuntman::Held(Held {
+                    outcome,
+                    x,
+                    timer: HOLD_TICKS,
+                });
+            }
+            Next::ResetMan => self.reset_man(),
+        }
+    }
+
+    fn score_outcome(&mut self, outcome: Outcome, height: i32) {
+        match outcome {
+            Outcome::Landed => {
+                self.score += self.level * height;
+                self.good_jumps += 1;
+                self.hiscore = self.hiscore.max(self.score);
+            }
+            // A hit driver or horse ends the game (original sets MenLeft := 1).
+            Outcome::HitDriver | Outcome::HitHorse => self.men_left = 1,
+            Outcome::Splat => {}
+        }
+    }
+
+    fn reset_man(&mut self) {
+        self.men_left -= 1;
+        if self.men_left > 0 {
+            self.stuntman = Stuntman::Hanging;
+        } else if self.good_jumps >= MEN_PER_LEVEL {
+            self.advance_level();
+        } else {
+            self.game_over();
+        }
+    }
+
+    fn advance_level(&mut self) {
+        self.level += 1;
+        if self.wagon.speed == WAGON_SPEED_MAX && self.gravity > 1 {
+            self.gravity -= 1;
+        }
+        if self.wagon.speed < WAGON_SPEED_MAX {
+            self.wagon.speed += 1;
+        }
+        self.men_left = MEN_PER_LEVEL;
+        self.good_jumps = 0;
+        self.stuntman = Stuntman::Hanging;
+    }
+
+    fn game_over(&mut self) {
+        let hiscore = self.hiscore.max(self.score);
+        *self = Self::default();
+        self.hiscore = hiscore;
     }
 }
+
+/// Wagon reaches this speed (GALLOP) before gravity starts easing.
+const WAGON_SPEED_MAX: i32 = 3;
+const _: () = assert!(WAGON_SPEED_START <= WAGON_SPEED_MAX);

@@ -54,6 +54,20 @@ pub const WAGON_SPEED_START: i32 = 1;
 /// Fastest fall (level 1), px/tick. Ramps 4->1 across later levels (slower fall
 /// = harder timing).
 pub const GRAVITY_START: i32 = 4;
+pub const MAN_W: i32 = 14;
+pub const MAN_H: i32 = 16;
+/// The hanging man's offset from the copter's top-left (`CoptRect.left+36`,
+/// `top+23`).
+pub const MAN_HANG_OFFSET: (i32, i32) = (36, 23);
+
+// --- Progression -----------------------------------------------------------
+
+/// Men per level; all must land to advance.
+pub const MEN_PER_LEVEL: i32 = 5;
+/// Lightest to heaviest gravity words, indexed by `gravity` (1..=4).
+pub const GRAVITY_WORDS: [&str; 4] = ["OH BOY", "FLYING", "NORMAL", "HEAVY"];
+/// Slowest to fastest wagon words, indexed by `wagon speed` (1..=3).
+pub const WAGON_WORDS: [&str; 3] = ["WALK", "TROT", "GALLOP"];
 
 // --- Layout: HUD at the bottom, ground line just above it ------------------
 
