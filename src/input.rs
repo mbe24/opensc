@@ -1,13 +1,17 @@
 //! Input.
 //!
 //! What it is: samples the real devices into the simulation's device-agnostic
-//! [`Intents`] — the requested copter velocity plus edge-triggered actions.
-//! Mouse-as-joystick is primary (faithful proportional control); keyboard
-//! overrides it while any steer key is held.
+//! [`Intents`] — requested copter velocity plus the drop edge. Three schemes,
+//! chosen automatically per frame:
+//! - **keyboard** — arrows/WASD steer (full deflection), Space drops; overrides
+//!   the others while a steer key is held;
+//! - **touch** — a floating joystick on the left half of the screen (wherever
+//!   the thumb lands is neutral; drag to fly) and a tap on the right half to
+//!   drop, so steering and dropping never collide;
+//! - **mouse** — the desktop pointer's offset from the canvas centre.
 //!
-//! What it is not: game logic — it decides *what the player asked for*, never
-//! what happens. The drop edge is latched by the caller and drained once per
-//! tick so a fast or slow frame can't lose or double it.
+//! What it is not: game logic. The drop edge is latched by the caller and
+//! drained once per tick so a fast or slow frame can't lose or double it.
 
 use macroquad::prelude::*;
 use stuntcopter_sim::Intents;
@@ -15,23 +19,107 @@ use stuntcopter_sim::Intents;
 use crate::canvas::Canvas;
 use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
 
-/// Fraction of each half-axis around the canvas centre that reads as neutral,
-/// so the copter can hover without the pointer being pixel-perfect.
+/// Fraction around neutral that reads as no input, so hovering is stable.
 const DEAD_ZONE: f32 = 0.10;
+/// Thumb travel for full joystick deflection, as a fraction of screen height.
+const STICK_RADIUS_FRAC: f32 = 0.14;
 
-/// Sample all input sources for this frame. When `mouse_steer` is off (a debug
-/// aid for reproducible testing), only the keyboard steers.
-#[must_use]
-pub fn gather(canvas: &Canvas, mouse_steer: bool) -> Intents {
-    let (req_dh, req_dv) = match keyboard_steer() {
-        Some(kb) => kb,
-        None if mouse_steer => pointer_steer(canvas),
-        None => (0, 0),
-    };
-    Intents {
-        req_dh,
-        req_dv,
-        drop: is_mouse_button_pressed(MouseButton::Left) || is_key_pressed(KeyCode::Space),
+/// Input sampler. Holds the little state the touch joystick needs across frames.
+#[derive(Default)]
+pub struct Input {
+    /// The active left-half steering touch, if any.
+    stick: Option<Stick>,
+    /// Set once any touch is seen, so a touch device never falls back to the
+    /// (stale) mouse position when no finger is down.
+    touch_seen: bool,
+}
+
+/// A floating joystick: `anchor` is where the thumb first landed (neutral); the
+/// current position comes from the live touch each frame. In screen pixels.
+#[derive(Clone, Copy)]
+struct Stick {
+    id: u64,
+    anchor: Vec2,
+}
+
+impl Input {
+    /// Sample all input sources for this frame. `mouse_steer` off (a debug aid)
+    /// disables mouse steering on desktop.
+    pub fn gather(&mut self, canvas: &Canvas, mouse_steer: bool) -> Intents {
+        let drop = is_mouse_button_pressed(MouseButton::Left) || is_key_pressed(KeyCode::Space);
+
+        // Keyboard overrides everything while a steer key is held.
+        if let Some((req_dh, req_dv)) = keyboard_steer() {
+            self.stick = None;
+            return Intents {
+                req_dh,
+                req_dv,
+                drop,
+            };
+        }
+
+        let ts = touches();
+        if !ts.is_empty() {
+            self.touch_seen = true;
+            return self.touch_intents(&ts);
+        }
+        self.stick = None;
+
+        // A touch device with nothing pressed hovers — never chase the stale mouse.
+        if self.touch_seen {
+            return Intents::default();
+        }
+
+        // Desktop: mouse-as-joystick from the pointer's offset to the canvas centre.
+        let (req_dh, req_dv) = if mouse_steer {
+            let (mx, my) = mouse_position();
+            let p = canvas.screen_to_canvas(vec2(mx, my));
+            velocity(axis(p.x, LOGICAL_W as f32), axis(p.y, LOGICAL_H as f32))
+        } else {
+            (0, 0)
+        };
+        Intents {
+            req_dh,
+            req_dv,
+            drop,
+        }
+    }
+
+    /// Whether a touch has ever been seen (so the UI can show touch hints).
+    #[must_use]
+    pub fn touch_seen(&self) -> bool {
+        self.touch_seen
+    }
+
+    fn touch_intents(&mut self, ts: &[Touch]) -> Intents {
+        let mid = screen_width() / 2.0;
+        let radius = (screen_height() * STICK_RADIUS_FRAC).max(1.0);
+        let mut req = (0, 0);
+        let mut steering = false;
+        let mut drop = false;
+        for t in ts {
+            if t.position.x < mid {
+                steering = true;
+                // Floating joystick: keep the anchor from when this touch began.
+                let anchor = match self.stick {
+                    Some(s) if s.id == t.id => s.anchor,
+                    _ => t.position,
+                };
+                self.stick = Some(Stick { id: t.id, anchor });
+                let d = t.position - anchor;
+                req = velocity(axis_norm(d.x / radius), axis_norm(d.y / radius));
+            } else if matches!(t.phase, TouchPhase::Started) {
+                drop = true;
+            }
+        }
+        if !steering {
+            self.stick = None;
+        }
+        Intents {
+            req_dh: req.0,
+            req_dv: req.1,
+            drop,
+        }
     }
 }
 
@@ -62,22 +150,11 @@ fn keyboard_steer() -> Option<(i32, i32)> {
     active.then_some((dir_h, dir_v))
 }
 
-/// Proportional steering from the pointer.
-///
-/// Departure from the original: instead of the tiny faithful [`MOUSE_RECT`]
-/// control box (which made anywhere outside it full-deflection), the pointer's
-/// offset from the canvas centre drives the requested velocity across the whole
-/// canvas, with a dead zone at the centre for stable hovering. The edges reach
-/// the [`DELTA_RECT`] extremes.
-fn pointer_steer(canvas: &Canvas) -> (i32, i32) {
-    let (mouse_x, mouse_y) = mouse_position();
-    let p = canvas.screen_to_canvas(vec2(mouse_x, mouse_y));
-    let nx = axis(p.x, LOGICAL_W);
-    let ny = axis(p.y, LOGICAL_H);
+/// Map normalized axes in `[-1, 1]` to a requested velocity within [`DELTA_RECT`].
+/// The vertical range is asymmetric (the copter rises faster than it climbs), so
+/// each direction scales against its own extreme and the centre is a true hover.
+fn velocity(nx: f32, ny: f32) -> (i32, i32) {
     let (min_h, min_v, max_h, max_v) = DELTA_RECT;
-
-    // Vertical range is asymmetric (rises faster than it climbs); scale up/down
-    // against the matching extreme so the centre is always a true hover.
     let req_h = (nx * max_h as f32).round() as i32;
     let req_v = if ny < 0.0 {
         (ny * min_v.unsigned_abs() as f32).round() as i32
@@ -87,12 +164,16 @@ fn pointer_steer(canvas: &Canvas) -> (i32, i32) {
     (req_h.clamp(min_h, max_h), req_v.clamp(min_v, max_v))
 }
 
-/// Normalize a canvas coordinate to `[-1, 1]` about the centre of `size`, with a
-/// dead zone: within [`DEAD_ZONE`] of centre returns 0, and the remainder is
-/// re-expanded so the edge still reaches ±1.
-fn axis(coord: f32, size: i32) -> f32 {
-    let half = size as f32 / 2.0;
-    let n = ((coord - half) / half).clamp(-1.0, 1.0);
+/// Normalize a coordinate to `[-1, 1]` about the centre of `size`, with a dead
+/// zone (see [`axis_norm`]).
+fn axis(coord: f32, size: f32) -> f32 {
+    axis_norm((coord - size / 2.0) / (size / 2.0))
+}
+
+/// Apply the centre dead zone to an already-normalized value, re-expanding the
+/// remainder so the extreme still reaches ±1.
+fn axis_norm(n: f32) -> f32 {
+    let n = n.clamp(-1.0, 1.0);
     if n.abs() < DEAD_ZONE {
         0.0
     } else {

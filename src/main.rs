@@ -35,10 +35,9 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     install_panic_logging();
-    // Translate touches into mouse events so mobile works through the same path:
-    // drag to steer (pointer position), tap to drop. We only read the mouse, not
-    // touches, so there's no double-processing.
-    simulate_mouse_with_touch(true);
+    // Handle touches directly (see `input`): a left-half joystick steers and a
+    // right-half tap drops. So don't also synthesize mouse events from touch.
+    simulate_mouse_with_touch(false);
 
     let assets = Assets::load();
     let mut audio = Audio::load().await;
@@ -54,6 +53,7 @@ async fn main() {
     // them at 60 Hz over a 30 Hz sim); latch it here so no press is ever lost,
     // and clear it once a tick or a scene change consumes it.
     let mut drop_pending = false;
+    let mut input = input::Input::default();
     // Collect each frame's simulation events; audio reacts to them, and the debug
     // build also displays them.
     let mut sink = stuntcopter_sim::EventLog::default();
@@ -73,9 +73,14 @@ async fn main() {
         let mouse_steer = true;
         sink.clear();
 
-        let mut intents = input::gather(&canvas, mouse_steer);
+        let mut intents = input.gather(&canvas, mouse_steer);
         drop_pending |= intents.drop;
-        let confirm = drop_pending || is_key_pressed(KeyCode::Enter);
+        // On the menu screens (attract/paused/game-over) a tap anywhere confirms,
+        // so mobile players don't have to find the drop half to press BEGIN.
+        let any_tap = touches()
+            .iter()
+            .any(|t| matches!(t.phase, TouchPhase::Started));
+        let confirm = drop_pending || any_tap || is_key_pressed(KeyCode::Enter);
         let exit = is_key_pressed(KeyCode::Backspace) || is_key_pressed(KeyCode::Escape);
 
         match scene {
@@ -140,7 +145,7 @@ async fn main() {
         let alpha = (accumulator / TICK_PERIOD).clamp(0.0, 1.0);
 
         canvas.begin();
-        draw_frame(&assets, &world, &scene, prev, alpha);
+        draw_frame(&assets, &world, &scene, prev, alpha, input.touch_seen());
         #[cfg(feature = "debug-controls")]
         debug.draw_hint(&assets, &world);
         canvas.end();
@@ -170,7 +175,14 @@ fn lerp(prev: i32, cur: i32, alpha: f32) -> f32 {
 
 /// Draw the whole scene for one frame: the world, then the scene's overlay
 /// (title, pause, game-over, or the level banner).
-fn draw_frame(assets: &Assets, world: &World, scene: &Scene, prev: RenderState, alpha: f32) {
+fn draw_frame(
+    assets: &Assets,
+    world: &World,
+    scene: &Scene,
+    prev: RenderState,
+    alpha: f32,
+    touch: bool,
+) {
     draw_scene(
         assets,
         world,
@@ -180,7 +192,7 @@ fn draw_frame(assets: &Assets, world: &World, scene: &Scene, prev: RenderState, 
         matches!(scene, Scene::Playing),
     );
     match scene {
-        Scene::Attract => draw_attract(assets),
+        Scene::Attract => draw_attract(assets, touch),
         Scene::Paused => draw_paused(assets),
         Scene::GameOver => draw_game_over(assets),
         Scene::Playing => {
@@ -245,11 +257,15 @@ fn draw_scene(
 }
 
 /// The attract screen: the bold title/credit and a rounded BEGIN button drawn
-/// over the idle scene, matching the original's wait-for-BEGIN layout.
-fn draw_attract(assets: &Assets) {
+/// over the idle scene, matching the original's wait-for-BEGIN layout. On a touch
+/// device it also shows a one-line control hint.
+fn draw_attract(assets: &Assets, touch_seen: bool) {
     text_center(assets, "StuntCopter", 44.0, 2.0);
     text_center(assets, "by Duane Blehm", 74.0, 1.0);
     button(assets, "BEGIN", 165.0);
+    if touch_seen {
+        text_center(assets, "drag left to fly     tap right to drop", 232.0, 1.0);
+    }
 }
 
 /// The game-over screen: the frozen final board with a title and a fresh BEGIN.
