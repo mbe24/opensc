@@ -132,8 +132,14 @@ fn centered(assets: &Assets, s: &str, y_rel: i32) {
     draw::text(assets, s, x as f32, (SB_Y + y_rel) as f32, INK);
 }
 
+/// How far the reticle swings per px/tick of velocity. The original sweeps the
+/// reticle across the whole window as the mouse spans its control box; the
+/// copter's velocity spans only `DELTA_RECT` (±4), so scale it up to use the
+/// window's full travel instead of the near-static ±4 px it would show raw.
+const YOKE_GAIN: f32 = 4.0;
+
 /// The yoke: the original's `OffCross` reticle bitmap, centered in the window and
-/// shifted by the copter's velocity, clipped to the window (as the copter moves,
+/// swung by the copter's velocity, clipped to the window (as the copter moves,
 /// the cross slides behind the frame — exactly the original's masked CopyBits).
 fn draw_yoke(assets: &Assets, world: &World) {
     let (vx, vy) = world.copter.velocity();
@@ -142,9 +148,9 @@ fn draw_yoke(assets: &Assets, world: &World) {
     let (win_w, win_h) = (ww as f32, wh as f32);
     let cross = Sprite::Cross.rect();
 
-    // Where the full cross would sit: centered in the window, offset by velocity.
-    let cross_l = win_l + (win_w - cross.w) / 2.0 + vx as f32;
-    let cross_t = win_t + (win_h - cross.h) / 2.0 + vy as f32;
+    // Where the full cross would sit: centered in the window, swung by velocity.
+    let cross_l = win_l + (win_w - cross.w) / 2.0 + vx as f32 * YOKE_GAIN;
+    let cross_t = win_t + (win_h - cross.h) / 2.0 + vy as f32 * YOKE_GAIN;
 
     // Draw only the part overlapping the window (the rest is clipped by the frame).
     let vis_l = cross_l.max(win_l);
