@@ -1,15 +1,16 @@
 //! Input.
 //!
-//! What it is: turns raw per-frame device state into a device-agnostic
-//! [`Intents`] value — the requested copter velocity plus edge-triggered
-//! actions. Mouse-as-joystick is primary (faithful proportional control);
-//! keyboard overrides it while any steer key is held.
+//! What it is: samples the real devices into the simulation's device-agnostic
+//! [`Intents`] — the requested copter velocity plus edge-triggered actions.
+//! Mouse-as-joystick is primary (faithful proportional control); keyboard
+//! overrides it while any steer key is held.
 //!
 //! What it is not: game logic — it decides *what the player asked for*, never
-//! what happens. Edge actions (drop) are latched here and drained once per tick
-//! by the caller so a fast or slow frame can't lose or double them.
+//! what happens. The drop edge is latched by the caller and drained once per
+//! tick so a fast or slow frame can't lose or double it.
 
 use macroquad::prelude::*;
+use stuntcopter_sim::Intents;
 
 use crate::canvas::Canvas;
 use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
@@ -18,22 +19,14 @@ use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
 /// so the copter can hover without the pointer being pixel-perfect.
 const DEAD_ZONE: f32 = 0.10;
 
-/// What the player is asking for this frame.
-pub struct Intents {
-    /// Requested copter velocity, px/tick, within [`DELTA_RECT`]. The copter
-    /// accelerates toward this; it is not applied directly.
-    pub req_dh: i32,
-    pub req_dv: i32,
-    /// Edge-triggered: the player pressed drop this frame.
-    pub drop: bool,
-}
-
-/// Sample all input sources for this frame.
+/// Sample all input sources for this frame. When `mouse_steer` is off (a debug
+/// aid for reproducible testing), only the keyboard steers.
 #[must_use]
-pub fn gather(canvas: &Canvas) -> Intents {
+pub fn gather(canvas: &Canvas, mouse_steer: bool) -> Intents {
     let (req_dh, req_dv) = match keyboard_steer() {
         Some(kb) => kb,
-        None => pointer_steer(canvas),
+        None if mouse_steer => pointer_steer(canvas),
+        None => (0, 0),
     };
     Intents {
         req_dh,

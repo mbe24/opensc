@@ -7,9 +7,9 @@
 //! What it is not: screen/window drawing — that scaling belongs to `canvas`.
 
 use macroquad::prelude::*;
+use stuntcopter_sim::Sprite;
 
 use crate::assets::Assets;
-use crate::atlas::Sprite;
 use crate::font;
 
 /// Draw `text` with the bitmap font, top-left at `(x, y)`, tinted `color`.
@@ -76,13 +76,14 @@ pub fn round_rect(x: f32, y: f32, w: f32, h: f32, radius: f32, color: Color) {
 
 /// Draw `which` at logical top-left `(x, y)`, tinted `color`, at native size.
 pub fn sprite(assets: &Assets, which: Sprite, x: f32, y: f32, color: Color) {
+    let r = which.rect();
     draw_texture_ex(
         &assets.atlas,
         x,
         y,
         color,
         DrawTextureParams {
-            source: Some(which.rect()),
+            source: Some(Rect::new(r.x, r.y, r.w, r.h)),
             ..Default::default()
         },
     );

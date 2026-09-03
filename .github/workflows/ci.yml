@@ -22,13 +22,14 @@ jobs:
       - name: Format
         run: cargo fmt --check
 
-      # `clippy::all` is denied via [lints] in Cargo.toml, so a violation fails
-      # here; `pedantic` stays advisory (warnings only) by design.
+      # `clippy::all` is denied via the shared [workspace.lints], so a violation
+      # fails here; `pedantic` stays advisory (warnings only) by design.
+      # `--workspace` covers both the binary and the `sim` crate.
       - name: Clippy
-        run: cargo clippy --all-targets
+        run: cargo clippy --workspace --all-targets
 
       - name: Test
-        run: cargo test
+        run: cargo test --workspace
 
       - name: Check web target
         run: cargo check --target wasm32-unknown-unknown

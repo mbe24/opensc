@@ -10,7 +10,20 @@ readme = "README.md"
 keywords = ["game", "macroquad", "wasm", "retro"]
 categories = ["games"]
 
+[workspace]
+members = ["sim"]
+
+[features]
+# Off by default: in-game debug/test controls (pin the wagon/copter, disable
+# mouse steering, on-screen event log) for lining up reproducible scenarios.
+# Build with `--features debug-controls`; a normal build compiles none of it.
+debug-controls = []
+
 [dependencies]
+# The platform-agnostic game model. It has no macroquad dependency, so the
+# simulation stays testable headless and the renderer is swappable.
+stuntcopter_sim = { path = "sim" }
+
 # macroquad enables miniquad's `log-impl`, which routes panics and its `error!`/
 # `info!` macros to the browser console on wasm (no wasm-bindgen needed).
 macroquad = "=0.4.16"
@@ -28,11 +41,16 @@ codegen-units = 1
 panic = "abort"
 strip = true
 
-# Lint gate. `clippy::all` is a hard error (real-bug lints); `pedantic` is
-# advisory (surfaced as warnings, not CI-fatal) because it fights the constant
-# i32-pixel <-> f32-vector casts inherent to 2D game math. The cast lints are
-# turned off outright for the same reason.
-[lints.clippy]
+# This crate opts into the shared workspace lint gate.
+[lints]
+workspace = true
+
+# Lint gate, shared by every crate in the workspace. `clippy::all` is a hard
+# error (real-bug lints); `pedantic` is advisory (surfaced as warnings, not
+# CI-fatal) because it fights the constant i32-pixel <-> f32-vector casts
+# inherent to 2D game math. The cast lints are turned off outright for the same
+# reason.
+[workspace.lints.clippy]
 all = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -1 }
 cast_possible_truncation = "allow"

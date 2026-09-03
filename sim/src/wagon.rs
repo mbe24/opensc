@@ -4,8 +4,8 @@
 //! wrapping around off the right edge, cycling three animation frames. Ported
 //! from the wagon block of `AnimateOneLoop`.
 
-use crate::atlas::Sprite;
 use crate::config::{LOGICAL_W, WAGON_W};
+use crate::sprite::Sprite;
 
 /// Distance to jump back when wrapping off the right edge (`OffSetRect(..,-582,..)`).
 const WRAP_STRIDE: i32 = LOGICAL_W + WAGON_W - 3;

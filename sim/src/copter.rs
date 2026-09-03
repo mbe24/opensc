@@ -5,8 +5,8 @@
 //! velocity, so reversing direction takes several ticks. Ported from
 //! `AnimateOneLoop` in the original.
 
-use crate::atlas::Sprite;
 use crate::config::{COPTER_BOTTOM_LIMIT, COPTER_H, COPTER_START, COPTER_W, LOGICAL_W};
+use crate::sprite::Sprite;
 
 /// Copter can drift this far past a screen edge before wrapping (`BorderRect`).
 const WRAP_LEFT: i32 = -76;

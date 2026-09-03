@@ -9,17 +9,17 @@
 //! What it is not: game logic — it only reads [`World`].
 
 use macroquad::prelude::*;
+use stuntcopter_sim::{Sprite, World};
 
 use crate::assets::Assets;
-use crate::atlas::Sprite;
 use crate::config::{
-    HUD_BAND_TOP, HUD_DIGIT_DX, HUD_GRAV_ROW, HUD_HEIGHT, HUD_HISCORE_DY, HUD_MAN0, HUD_MAN_DX,
-    HUD_NUM0, HUD_THUMBDOWN_DY, HUD_THUMBUP_DY, HUD_VALUE_X0, HUD_VALUE_X1, HUD_WAGON_ROW,
-    HUD_YOKE_WIN, MAN_H, MAN_W, MEN_PER_LEVEL, SB_H, SB_W, SB_X, SB_Y,
+    FLIP_BOX_L, FLIP_BOX_R, HUD_BAND_TOP, HUD_DIGIT_DX, HUD_GRAV_ROW, HUD_HEIGHT, HUD_HISCORE_DY,
+    HUD_MAN0, HUD_MAN_DX, HUD_NUM0, HUD_THUMBDOWN_DY, HUD_THUMBUP_DY, HUD_VALUE_X0, HUD_VALUE_X1,
+    HUD_WAGON_ROW, HUD_YOKE_WIN, MAN_H, MAN_W, MEN_PER_LEVEL, SB_H, SB_W, SB_X, SB_Y,
 };
 use crate::draw;
 use crate::theme::{INK, SKY};
-use crate::world::World;
+use stuntcopter_sim::stuntman::Stuntman;
 
 pub fn draw(assets: &Assets, world: &World, playing: bool) {
     // dkGray band, then the opaque-white ScoreBox PICT on top (gray shows only in
@@ -44,6 +44,23 @@ pub fn draw(assets: &Assets, world: &World, playing: bool) {
             (SB_Y + wy) as f32,
             INK,
         );
+    }
+    draw_flip_boxes(assets, world);
+}
+
+/// While a landing is being celebrated, the backflip figure tumbles inside a
+/// framed box in each gray margin, on either side of the ScoreBox.
+fn draw_flip_boxes(assets: &Assets, world: &World) {
+    let Stuntman::Celebrating(flip) = &world.stuntman else {
+        return;
+    };
+    let Some(pose) = flip.pose() else {
+        return;
+    };
+    for (fx, fy, fw, fh) in [FLIP_BOX_L, FLIP_BOX_R] {
+        draw_rectangle(fx as f32, fy as f32, fw as f32, fh as f32, SKY);
+        draw_rectangle_lines(fx as f32, fy as f32, fw as f32, fh as f32, 1.0, INK);
+        draw::sprite(assets, pose, (fx + 4) as f32, (fy + 4) as f32, INK);
     }
 }
 

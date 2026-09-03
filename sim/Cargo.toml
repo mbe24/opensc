@@ -1,0 +1,16 @@
+[package]
+name = "stuntcopter_sim"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "The platform-agnostic StuntCopter game simulation: state, rules, and the fixed-timestep tick. No rendering or windowing — no macroquad."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mbe24/opensc"
+
+# No dependencies on purpose: this crate is the pure game model, so it stays
+# testable headless and the presentation layer (macroquad, or any future
+# replacement) can be swapped without touching game logic.
+[dependencies]
+
+[lints]
+workspace = true

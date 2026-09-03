@@ -5,10 +5,9 @@
 //! falling through it catches a gust (random horizontal jitter). Ported from
 //! `StartNewCloud` and the cloud case of `AnimateOneLoop`.
 
-use macroquad::rand::gen_range;
-
-use crate::atlas::Sprite;
 use crate::config::LOGICAL_W;
+use crate::rng::Rng;
+use crate::sprite::Sprite;
 
 pub struct Cloud {
     pub x: i32,
@@ -18,29 +17,28 @@ pub struct Cloud {
 
 impl Default for Cloud {
     fn default() -> Self {
-        let mut cloud = Self {
+        Self {
             x: LOGICAL_W,
             y: 30,
             frame: 0,
-        };
-        cloud.respawn();
-        cloud
+        }
     }
 }
 
 impl Cloud {
-    /// Drift one pixel left; respawn once fully off the left edge.
-    pub fn tick(&mut self) {
+    /// Drift one pixel left; respawn (at a fresh random height) once fully off
+    /// the left edge.
+    pub fn tick(&mut self, rng: &mut Rng) {
         self.x -= 1;
         if self.x + self.width() < 0 {
-            self.respawn();
+            self.respawn(rng);
         }
     }
 
-    fn respawn(&mut self) {
+    fn respawn(&mut self, rng: &mut Rng) {
         self.frame = (self.frame + 1) % 3;
         self.x = LOGICAL_W;
-        self.y = gen_range(8, 120);
+        self.y = rng.range(8, 120);
     }
 
     #[must_use]

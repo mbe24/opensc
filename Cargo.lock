@@ -267,7 +267,12 @@ name = "stuntcopter"
 version = "0.1.0"
 dependencies = [
  "macroquad",
+ "stuntcopter_sim",
 ]
+
+[[package]]
+name = "stuntcopter_sim"
+version = "0.1.0"
 
 [[package]]
 name = "ttf-parser"

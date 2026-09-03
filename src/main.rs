@@ -1,28 +1,22 @@
 #![doc = include_str!("../README.md")]
 
 mod assets;
-mod atlas;
 mod canvas;
-mod cloud;
 mod config;
-mod copter;
+#[cfg(feature = "debug-controls")]
+mod debug;
 mod draw;
 mod font;
 mod hud;
 mod input;
-mod level;
-mod stuntman;
 mod theme;
-mod wagon;
-mod world;
 
 use assets::Assets;
-use atlas::Sprite;
 use canvas::Canvas;
-use config::{GROUND_Y, MAN_H, TICK_PERIOD, WAGON_H};
+use config::{GROUND_Y, MAN_H, TICK_PERIOD, WAGON_H, WAGON_W};
 use macroquad::prelude::*;
-use stuntman::{Outcome, Stuntman};
-use world::{RenderState, World};
+use stuntcopter_sim::stuntman::{Splat, Stuntman, Wreck};
+use stuntcopter_sim::{RenderState, Sprite, World};
 
 fn window_conf() -> Conf {
     Conf {
@@ -44,17 +38,42 @@ async fn main() {
     let assets = Assets::load();
     let canvas = Canvas::new();
     let mut world = World::default();
+    // A per-session seed so wind isn't identical every run (tests keep the fixed
+    // default seed). `date::now()` is available on native and web alike.
+    world.reseed((miniquad::date::now() * 1000.0) as u64);
     let mut prev = world.render_state();
     let mut scene = Scene::Attract;
     let mut accumulator = 0.0f32;
+    // The drop edge can land on a render frame that runs no sim tick (half of
+    // them at 60 Hz over a 30 Hz sim); latch it here so no press is ever lost,
+    // and clear it once a tick or a scene change consumes it.
+    let mut drop_pending = false;
+    // A normal build discards events at zero cost; the debug build collects them
+    // for the on-screen log.
+    #[cfg(not(feature = "debug-controls"))]
+    let mut sink = stuntcopter_sim::NoSink;
+    #[cfg(feature = "debug-controls")]
+    let mut sink = stuntcopter_sim::EventLog::default();
+    #[cfg(feature = "debug-controls")]
+    let mut debug = debug::Debug::default();
 
     loop {
         // Clamp the frame delta so a backgrounded tab can't make the accumulator
         // spiral into hundreds of catch-up ticks on return.
         accumulator += get_frame_time().min(config::MAX_FRAME_TIME);
 
-        let mut intents = input::gather(&canvas);
-        let confirm = intents.drop || is_key_pressed(KeyCode::Enter);
+        #[cfg(feature = "debug-controls")]
+        debug.update(&mut world);
+        #[cfg(feature = "debug-controls")]
+        let mouse_steer = debug.mouse_steer();
+        #[cfg(not(feature = "debug-controls"))]
+        let mouse_steer = true;
+        #[cfg(feature = "debug-controls")]
+        sink.clear();
+
+        let mut intents = input::gather(&canvas, mouse_steer);
+        drop_pending |= intents.drop;
+        let confirm = drop_pending || is_key_pressed(KeyCode::Enter);
         let exit = is_key_pressed(KeyCode::Backspace) || is_key_pressed(KeyCode::Escape);
 
         match scene {
@@ -68,18 +87,18 @@ async fn main() {
                     world.begin();
                     prev = world.render_state();
                     scene = Scene::Playing;
+                    drop_pending = false; // don't drop the first man on the start click
                 }
             }
             Scene::Playing => {
-                // Drain the edge-triggered drop after the first tick so a
-                // multi-tick frame can't fire it twice.
                 while accumulator >= TICK_PERIOD {
                     prev = world.render_state();
-                    world.tick(&intents);
-                    intents.drop = false;
+                    intents.drop = drop_pending;
+                    world.tick(&intents, &mut sink);
+                    drop_pending = false; // consumed by exactly one tick
                     accumulator -= TICK_PERIOD;
                     if world.over {
-                        scene = Scene::Attract;
+                        scene = Scene::GameOver;
                         break;
                     }
                 }
@@ -91,30 +110,34 @@ async fn main() {
                 accumulator = 0.0; // time doesn't pass while paused
                 if confirm {
                     scene = Scene::Playing;
+                    drop_pending = false; // the resume click is not a drop
                 } else if exit {
                     scene = Scene::Attract;
                 }
             }
+            Scene::GameOver => {
+                // The final board stays frozen until the player starts anew.
+                accumulator = 0.0;
+                if confirm {
+                    world.begin();
+                    prev = world.render_state();
+                    scene = Scene::Playing;
+                    drop_pending = false;
+                }
+            }
         }
+
+        #[cfg(feature = "debug-controls")]
+        debug.record(sink.events());
 
         // Interpolate render positions between the last two ticks so motion is
         // smooth at the display's refresh rate, not just the 30 Hz sim rate.
         let alpha = (accumulator / TICK_PERIOD).clamp(0.0, 1.0);
 
         canvas.begin();
-        draw_scene(
-            &assets,
-            &world,
-            prev,
-            alpha,
-            !matches!(scene, Scene::Attract),
-            matches!(scene, Scene::Playing),
-        );
-        match scene {
-            Scene::Attract => draw_attract(&assets),
-            Scene::Paused => draw_paused(&assets),
-            Scene::Playing => {}
-        }
+        draw_frame(&assets, &world, &scene, prev, alpha);
+        #[cfg(feature = "debug-controls")]
+        debug.draw_hint(&assets, &world);
         canvas.end();
         canvas.present(theme::BARS);
         next_frame().await;
@@ -126,6 +149,7 @@ enum Scene {
     Attract,
     Playing,
     Paused,
+    GameOver,
 }
 
 /// Interpolate an integer coordinate between the previous and current tick,
@@ -139,9 +163,32 @@ fn lerp(prev: i32, cur: i32, alpha: f32) -> f32 {
     }
 }
 
-/// Draw one frame, interpolating positions between ticks for smooth motion.
-/// `show_man` is false on the attract screen, where no stuntman is present;
-/// `playing` gates the live yoke crosshair (gray-covered otherwise).
+/// Draw the whole scene for one frame: the world, then the scene's overlay
+/// (title, pause, game-over, or the level banner).
+fn draw_frame(assets: &Assets, world: &World, scene: &Scene, prev: RenderState, alpha: f32) {
+    draw_scene(
+        assets,
+        world,
+        prev,
+        alpha,
+        !matches!(scene, Scene::Attract),
+        matches!(scene, Scene::Playing),
+    );
+    match scene {
+        Scene::Attract => draw_attract(assets),
+        Scene::Paused => draw_paused(assets),
+        Scene::GameOver => draw_game_over(assets),
+        Scene::Playing => {
+            if world.level_banner > 0 {
+                draw_level_banner(assets, world.progression.level);
+            }
+        }
+    }
+}
+
+/// Draw one frame's world, interpolating positions between ticks for smooth
+/// motion. `show_man` is false on the attract screen, where no stuntman is
+/// present; `playing` gates the live yoke crosshair (gray-covered otherwise).
 fn draw_scene(
     assets: &Assets,
     world: &World,
@@ -197,29 +244,43 @@ fn draw_scene(
 fn draw_attract(assets: &Assets) {
     text_center(assets, "StuntCopter", 44.0, 2.0);
     text_center(assets, "by Duane Blehm", 74.0, 1.0);
+    button(assets, "BEGIN", 165.0);
+}
 
-    // Authentic button geometry from `CreateWindow`: 80x26, centered
-    // horizontally, top at v=165.
-    let (bw, bh) = (80.0, 26.0);
-    let bx = (config::LOGICAL_W as f32 - bw) / 2.0;
-    let by = 165.0;
-    let r = 8.0;
-    draw::round_rect(bx, by, bw, bh, r, theme::INK);
-    draw::round_rect(bx + 1.0, by + 1.0, bw - 2.0, bh - 2.0, r - 1.0, theme::SKY);
-    let tw = draw::text_width("BEGIN") as f32;
-    draw::text(
-        assets,
-        "BEGIN",
-        bx + (bw - tw) / 2.0,
-        by + (bh - font::CELL_H) / 2.0,
-        theme::INK,
-    );
+/// The game-over screen: the frozen final board with a title and a fresh BEGIN.
+fn draw_game_over(assets: &Assets) {
+    text_center(assets, "GAME OVER", 110.0, 2.0);
+    button(assets, "BEGIN", 165.0);
 }
 
 /// The pause overlay.
 fn draw_paused(assets: &Assets) {
     text_center(assets, "PAUSED", 110.0, 2.0);
     text_center(assets, "SPACE resumes   ESC ends", 140.0, 1.0);
+}
+
+/// The "LEVEL n" banner shown briefly after clearing a level — the original's
+/// LevelButton, drawn at its END/LEVEL slot (v=200).
+fn draw_level_banner(assets: &Assets, level: i32) {
+    button(assets, &format!("LEVEL {level}"), 200.0);
+}
+
+/// A classic-Mac rounded push button, 80x26, horizontally centered with its top
+/// at `top`, labeled `label`. Matches `CreateWindow`'s `SizeControl(_, 80, 26)`.
+fn button(assets: &Assets, label: &str, top: f32) {
+    let (bw, bh) = (80.0, 26.0);
+    let bx = (config::LOGICAL_W as f32 - bw) / 2.0;
+    let r = 8.0;
+    draw::round_rect(bx, top, bw, bh, r, theme::INK);
+    draw::round_rect(bx + 1.0, top + 1.0, bw - 2.0, bh - 2.0, r - 1.0, theme::SKY);
+    let tw = draw::text_width(label) as f32;
+    draw::text(
+        assets,
+        label,
+        bx + (bw - tw) / 2.0,
+        top + (bh - font::CELL_H) / 2.0,
+        theme::INK,
+    );
 }
 
 /// Draw `s` horizontally centered on the canvas at top `y`, scaled by `scale`.
@@ -259,28 +320,38 @@ fn draw_stuntman(
             };
             draw::sprite(assets, faller.sprite(), x, y, ink);
         }
-        Stuntman::Held(held) => match held.outcome {
-            Outcome::Landed => {
-                draw::sprite(
-                    assets,
-                    Sprite::ManInWagon,
-                    wagon_x + 30.0,
-                    wagon_y - 6.0,
-                    ink,
-                );
-            }
-            Outcome::Splat => {
-                let y = (GROUND_Y - MAN_H) as f32;
-                draw::sprite(assets, Sprite::ManSplat1, held.x as f32, y, ink);
-            }
-            Outcome::HitDriver => {
-                draw::sprite(assets, Sprite::Driver, wagon_x + 30.0, wagon_y, ink);
-            }
-            Outcome::HitHorse => {
-                draw::sprite(assets, Sprite::HorseDead, wagon_x + 45.0, wagon_y, ink);
-            }
-        },
+        // The rescued man rides in the wagon; the backflip itself plays in the
+        // HUD flip-boxes (see `hud`).
+        Stuntman::Celebrating(_) => {
+            draw::sprite(assets, Sprite::ManInWagon, wagon_x, wagon_y, ink);
+        }
+        Stuntman::Crashing(splat) => draw_crash(assets, splat, wagon_x, wagon_y),
     }
+}
+
+/// Draw a failed drop: the crumple frames at the point of impact, then the wreck
+/// left behind (a dead driver or horse against the wagon, or nothing on a clean
+/// miss).
+fn draw_crash(assets: &Assets, splat: &Splat, wagon_x: f32, wagon_y: f32) {
+    let ink = theme::INK;
+    if let Some(frame) = splat.pose() {
+        // At ground level for a clean miss; a touch higher when he strikes the
+        // driver or horse riding on the wagon.
+        let y = match splat.wreck {
+            Wreck::Ground => GROUND_Y - MAN_H,
+            Wreck::Driver | Wreck::Horse => GROUND_Y - 13 - MAN_H,
+        } as f32;
+        draw::sprite(assets, frame, splat.x as f32, y, ink);
+        return;
+    }
+    let wreck = match splat.wreck {
+        Wreck::Ground => return,
+        Wreck::Driver => Sprite::Driver,
+        Wreck::Horse => Sprite::HorseDead,
+    };
+    // Right-aligned to the wagon, where the driver and horse ride.
+    let x = wagon_x + (WAGON_W as f32 - wreck.rect().w);
+    draw::sprite(assets, wreck, x, wagon_y, ink);
 }
 
 /// Route panics to the browser console on web (via macroquad/miniquad's
