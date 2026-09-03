@@ -1,0 +1,9 @@
+# quad-snd's web-audio backend calls JS functions (audio_init, audio_add_buffer,
+# audio_play_buffer, audio_source_*, ...) that the macroquad JS bundle supplies
+# at runtime, so they are undefined at link time. Allow undefined wasm symbols so
+# the linker emits them as imports instead of erroring with
+# "undefined symbol: audio_init". Older rustc did this implicitly; newer
+# toolchains (e.g. CI's stable) require it stated. It targets only wasm, so
+# native builds are unaffected, and `cargo check` (no link step) ignores it.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=--allow-undefined"]
