@@ -22,13 +22,17 @@ how it's shown — small enough to read, faithful enough to trust.
   splat / hit-the-driver / hit-the-horse fates — all matched to the original.
 - 🧩 **Clean sim / UI split** — the whole game lives in a `sim` crate with **zero
   macroquad dependency**: deterministic, headless-testable, and swappable behind
-  any renderer. The `src` layer is the thin macroquad presentation.
+  any renderer. The `app` crate is the thin macroquad presentation.
+- 🔒 **Typed units** — positions, velocities, screen-vs-canvas pixel spaces, and
+  score/level/height are distinct newtypes, so an x/y swap or a physical-vs-logical
+  pixel mixup is a compile error, not a bug. All zero-cost.
 - 🔊 **Procedural sound** — the ~10 Hz rotor drone, the sawtooth splat, and the
   building four-note fanfare are **synthesized at runtime** (no audio files),
   played in reaction to simulation events.
 - 🖼️ **Authentic art** — sprites are decoded straight from the original
-  QuickDraw **PICT resources**, drawn through an integer-scaled virtual canvas
-  that stays crisp from a 4K monitor to a phone.
+  QuickDraw **PICT resources**, drawn through a virtual canvas that fit-scales to
+  the window (aspect-preserving, nearest-neighbor) so it stays crisp from a 4K
+  monitor to a phone.
 - 🌐 **Runs everywhere** — one codebase, native **and** WebAssembly (no
   wasm-bindgen); the web build is a self-contained static `dist/`.
 - 🛠️ **Deterministic test harness** — a seedable RNG, a domain event log, and
@@ -56,7 +60,7 @@ consumes them:
   the renderer draws) and, as a side-channel, reports typed **events**
   (`Dropped`, `CelebrationStarted`, `Resolved`, `LevelCleared`, …) to a caller-
   supplied `EventSink`. It knows nothing about rendering, input, timing, or audio.
-- The **presentation** (`src/`) runs the loop: a clamped fixed-timestep
+- The **presentation** (`app/`) runs the loop: a clamped fixed-timestep
   accumulator with **render interpolation** for smooth motion; the renderer reads
   `render_state()` plus the public world fields. Audio and the debug overlay are
   the only consumers of the event sink — pass `NoSink` and the sim does no event
@@ -67,15 +71,16 @@ consumes them:
 ## Repository layout
 
 ```text
-opensc/
-├── sim/          # platform-agnostic game simulation — no macroquad
-│   └── src/      #   world, level, copter, wagon, cloud, stuntman, rng, event, sprite
-├── src/          # macroquad presentation — main loop, draw, hud, canvas, input, audio
-│   └── audio/    #   pure waveform synthesis (synth) + the macroquad player
-├── assets/       # generated sprite atlas + bitmap font (embedded at build time)
-├── reference/    # Duane Blehm's original 1986 source & resources (public domain — see its README)
-├── scripts/      # asset generation (PICT decode) and the Node web build/serve
-└── web/          # the WebAssembly page shell + the vendored macroquad loader
+opensc/                 # virtual Cargo workspace (app + sim are peers)
+├── app/            # macroquad presentation — the `stuntcopter` executable
+│   ├── src/        #   main loop, draw, hud, canvas, input, screen, audio, debug
+│   │   └── audio/  #     pure waveform synthesis (synth) + the macroquad player
+│   └── assets/     #   generated sprite atlas + bitmap font (embedded at build time)
+├── sim/            # platform-agnostic game model — no macroquad
+│   └── src/        #   world, level, copter, wagon, cloud, stuntman, geom, score, rng, event, sprite
+├── reference/      # Duane Blehm's original 1986 source & resources (public domain — see its README)
+├── scripts/        # asset generation (PICT decode) and the Node web build/serve
+└── web/            # the WebAssembly page shell + the vendored macroquad loader
 ```
 
 ## Build & run
