@@ -21,10 +21,15 @@ const dist = join(root, "dist");
 const built = join(root, "target", TARGET, PROFILE, WASM);
 const web = join(root, "web");
 
-console.log("› cargo build --profile", PROFILE, "--target", TARGET);
+// Optional cargo features, comma-separated, via `FEATURES=debug-controls`. The
+// deployed build passes none, so debug/test controls never ship.
+const features = (process.env.FEATURES ?? "").trim();
+const featureArgs = features ? ["--features", features] : [];
+
+console.log("› cargo build --profile", PROFILE, "--target", TARGET, ...featureArgs);
 execFileSync(
     "cargo",
-    ["build", "--profile", PROFILE, "--target", TARGET],
+    ["build", "--profile", PROFILE, "--target", TARGET, ...featureArgs],
     { cwd: root, stdio: "inherit" },
 );
 
