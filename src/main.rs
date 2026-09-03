@@ -12,6 +12,8 @@ mod hud;
 mod input;
 mod theme;
 
+use std::fmt::Write;
+
 use assets::Assets;
 use audio::{Ambient, Audio};
 use canvas::Canvas;
@@ -265,7 +267,9 @@ fn draw_paused(assets: &Assets) {
 /// The "LEVEL n" banner shown briefly after clearing a level — the original's
 /// LevelButton, drawn at its END/LEVEL slot (v=200).
 fn draw_level_banner(assets: &Assets, level: i32) {
-    button(assets, &format!("LEVEL {level}"), 200.0);
+    let mut label = draw::StackStr::<16>::new();
+    let _ = write!(label, "LEVEL {level}");
+    button(assets, label.as_str(), 200.0);
 }
 
 /// A classic-Mac rounded push button, 80x26, horizontally centered with its top

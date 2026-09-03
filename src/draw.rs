@@ -6,11 +6,54 @@
 //!
 //! What it is not: screen/window drawing — that scaling belongs to `canvas`.
 
+use std::fmt::Write;
+
 use macroquad::prelude::*;
 use stuntcopter_sim::Sprite;
 
 use crate::assets::Assets;
 use crate::font;
+
+/// A fixed-capacity stack string for short UI labels (scores, "LEVEL n"), so
+/// building them each frame allocates nothing. `write!` into it, then
+/// [`StackStr::as_str`]. Intended for short ASCII labels; a write past `N` is
+/// truncated rather than panicking.
+pub struct StackStr<const N: usize> {
+    buf: [u8; N],
+    len: usize,
+}
+
+impl<const N: usize> StackStr<N> {
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            buf: [0; N],
+            len: 0,
+        }
+    }
+
+    #[must_use]
+    pub fn as_str(&self) -> &str {
+        // Only whole &str chunks of ASCII labels are written, so this is valid.
+        std::str::from_utf8(&self.buf[..self.len]).unwrap_or("")
+    }
+}
+
+impl<const N: usize> Default for StackStr<N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<const N: usize> Write for StackStr<N> {
+    fn write_str(&mut self, s: &str) -> std::fmt::Result {
+        let end = (self.len + s.len()).min(N);
+        let take = end - self.len;
+        self.buf[self.len..end].copy_from_slice(&s.as_bytes()[..take]);
+        self.len = end;
+        Ok(())
+    }
+}
 
 /// Draw `text` with the bitmap font, top-left at `(x, y)`, tinted `color`.
 pub fn text(assets: &Assets, text: &str, x: f32, y: f32, color: Color) {

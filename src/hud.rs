@@ -8,6 +8,8 @@
 //!
 //! What it is not: game logic — it only reads [`World`].
 
+use std::fmt::Write;
+
 use macroquad::prelude::*;
 use stuntcopter_sim::{Sprite, World};
 
@@ -111,9 +113,11 @@ fn draw_digits(assets: &Assets, score: i32, y_rel: i32) {
 fn draw_status(assets: &Assets, world: &World) {
     let wagon = world.progression.wagon.word();
     let gravity = world.progression.gravity.word();
+    let mut height = draw::StackStr::<8>::new();
+    let _ = write!(height, "{}", world.height());
     draw::text(
         assets,
-        &world.height().to_string(),
+        height.as_str(),
         (SB_X + HUD_HEIGHT.0) as f32,
         (SB_Y + HUD_HEIGHT.1) as f32,
         INK,
