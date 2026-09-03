@@ -62,6 +62,32 @@
         <div>Loading StuntCopter…</div>
     </div>
 
+    <!-- Unlock Web Audio as early as possible. Browsers start every AudioContext
+         suspended until a user gesture; the game creates its context lazily, so
+         register the resume BEFORE it exists (wrap the constructor) and resume on
+         the first gesture. Without this the BEGIN tap can be missed and sound
+         only starts a second or two later, on the next input. -->
+    <script>
+        (function () {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            const live = new Set();
+            const Wrapped = function (...args) {
+                const c = new Ctx(...args);
+                live.add(c);
+                return c;
+            };
+            Wrapped.prototype = Ctx.prototype;
+            window.AudioContext = Wrapped;
+            if (window.webkitAudioContext) window.webkitAudioContext = Wrapped;
+            const resumeAll = () => live.forEach((c) => {
+                if (c.state !== "running") c.resume().catch(() => {});
+            });
+            for (const ev of ["pointerdown", "touchend", "mousedown", "keydown"]) {
+                window.addEventListener(ev, resumeAll, { capture: true });
+            }
+        })();
+    </script>
     <script src="mq_js_bundle.js"></script>
     <script>
         // Remove the loading overlay once the game has initialized.
