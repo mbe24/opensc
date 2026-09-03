@@ -11,7 +11,7 @@
 use std::fmt::Write;
 
 use macroquad::prelude::*;
-use stuntcopter_sim::{Sprite, World};
+use stuntcopter_sim::{Score, Sprite, World};
 
 use crate::assets::Assets;
 use crate::config::{
@@ -92,7 +92,8 @@ fn draw_lives(assets: &Assets, world: &World) {
 
 /// Six numeral sprites (white digit on a dithered cell); the one's digit is
 /// always 0, exactly as `DrawScoreIntoBox`.
-fn draw_digits(assets: &Assets, score: i32, y_rel: i32) {
+fn draw_digits(assets: &Assets, score: Score, y_rel: i32) {
+    let score = score.get();
     let digits = [
         (score / 10000) % 10,
         (score / 1000) % 10,

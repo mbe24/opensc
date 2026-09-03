@@ -9,6 +9,7 @@
 //! transitions and owns that state.
 
 use crate::geom::Pos;
+use crate::score::Height;
 use crate::sprite::Sprite;
 
 /// How a drop ended, by the man's horizontal offset from the wagon.
@@ -24,13 +25,13 @@ pub enum Outcome {
 pub struct Faller {
     pub pos: Pos,
     /// Captured at drop time; scores `level * height_of_drop` on a landing.
-    pub height_of_drop: i32,
+    pub height_of_drop: Height,
     frame: u8,
 }
 
 impl Faller {
     #[must_use]
-    pub fn new(pos: Pos, height_of_drop: i32) -> Self {
+    pub fn new(pos: Pos, height_of_drop: Height) -> Self {
         Self {
             pos,
             height_of_drop,

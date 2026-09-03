@@ -16,6 +16,7 @@ use crate::geom::Pos;
 use crate::intents::Intents;
 use crate::level::Progression;
 use crate::rng::Rng;
+use crate::score::{Height, Points, Score};
 use crate::stuntman::{classify, Faller, Flip, Outcome, Splat, Stuntman, Wreck};
 use crate::wagon::Wagon;
 
@@ -52,8 +53,8 @@ pub struct World {
     pub cloud: Cloud,
     pub stuntman: Stuntman,
     pub progression: Progression,
-    pub score: i32,
-    pub hiscore: i32,
+    pub score: Score,
+    pub hiscore: Score,
     pub men_left: i32,
     pub good_jumps: i32,
     /// Per-man outcome for this level (`None` until the man is resolved).
@@ -82,8 +83,8 @@ impl Default for World {
             cloud: Cloud::default(),
             stuntman: Stuntman::default(),
             progression: Progression::default(),
-            score: 0,
-            hiscore: 0,
+            score: Score::default(),
+            hiscore: Score::default(),
             men_left: MEN_PER_LEVEL,
             good_jumps: 0,
             results: [None; MEN_PER_LEVEL as usize],
@@ -115,7 +116,7 @@ enum Next {
     Nothing,
     StartFall,
     /// Landed with this outcome, drop height, and impact x.
-    Land(Outcome, i32, i32),
+    Land(Outcome, Height, i32),
     /// The celebration or crash animation has run its course.
     FinishMan,
 }
@@ -204,8 +205,8 @@ impl World {
 
     /// Current copter height above the ground, as shown in the HUD.
     #[must_use]
-    pub fn height(&self) -> i32 {
-        (GROUND_Y - (self.copter.pos.y + COPTER_H)).max(0)
+    pub fn height(&self) -> Height {
+        Height::new((GROUND_Y - (self.copter.pos.y + COPTER_H)).max(0))
     }
 
     /// Zero-based index of the man currently in play (0..=4).
@@ -270,7 +271,7 @@ impl World {
             Next::Nothing => {}
             Next::StartFall => {
                 let pos = self.hang_pos();
-                let height = GROUND_Y - (self.copter.pos.y + COPTER_H);
+                let height = Height::new(GROUND_Y - (self.copter.pos.y + COPTER_H));
                 self.stuntman = Stuntman::Falling(Faller::new(pos, height));
                 sink.emit(Event::Dropped);
             }
@@ -299,7 +300,7 @@ impl World {
     }
 
     /// Apply an outcome's scoring/bookkeeping and return the points gained.
-    fn score_outcome(&mut self, outcome: Outcome, height: i32) -> i32 {
+    fn score_outcome(&mut self, outcome: Outcome, height: Height) -> Points {
         // Record this man's outcome before `men_left` is touched below.
         self.results[self.current_man()] = Some(outcome);
         match outcome {
@@ -313,9 +314,9 @@ impl World {
             // A hit driver or horse ends the game (original sets MenLeft := 1).
             Outcome::HitDriver | Outcome::HitHorse => {
                 self.men_left = 1;
-                0
+                Points::default()
             }
-            Outcome::Splat => 0,
+            Outcome::Splat => Points::default(),
         }
     }
 
@@ -405,7 +406,7 @@ mod tests {
         world.men_left = 1; // on the last man
         world.stuntman = Stuntman::Celebrating(Flip::new());
         run_until_transition(&mut world);
-        assert_eq!(world.progression.level, 2);
+        assert_eq!(world.progression.level.get(), 2);
         assert!(world.level_banner > 0);
         assert!(!world.over);
         assert!(matches!(world.stuntman, Stuntman::Hanging));
@@ -435,7 +436,7 @@ mod tests {
             "a drop into the hay celebrates"
         );
         assert_eq!(world.good_jumps, 1);
-        assert!(world.score > 0);
+        assert!(world.score.get() > 0);
     }
 
     #[test]
@@ -463,7 +464,7 @@ mod tests {
                         outcome: Outcome::Landed,
                         points,
                         ..
-                    } if points > 0 => {
+                    } if points.get() > 0 => {
                         resolved = true;
                     }
                     Event::CelebrationStarted => {

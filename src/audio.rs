@@ -13,7 +13,7 @@ mod synth;
 
 use macroquad::audio::{load_sound_from_bytes, play_sound, stop_sound, PlaySoundParams, Sound};
 use stuntcopter_sim::stuntman::Outcome;
-use stuntcopter_sim::Event;
+use stuntcopter_sim::{Event, Level};
 
 const DRONE_VOLUME: f32 = 0.25;
 const SPLAT_VOLUME: f32 = 0.55;
@@ -51,11 +51,11 @@ impl Audio {
 
     /// Play the one-shots for this tick's events. `level` pitches the fanfare and
     /// is read from current game state, never carried by the event.
-    pub fn handle_events(&self, events: &[Event], level: i32) {
+    pub fn handle_events(&self, events: &[Event], level: Level) {
         for event in events {
             match *event {
                 Event::CelebrationStarted => {
-                    let idx = (level.clamp(1, synth::MAX_LEVEL) - 1) as usize;
+                    let idx = (level.get().clamp(1, synth::MAX_LEVEL) - 1) as usize;
                     play_once(&self.fanfares[idx], FANFARE_VOLUME);
                 }
                 Event::Resolved { outcome, .. } if is_crash(outcome) => {

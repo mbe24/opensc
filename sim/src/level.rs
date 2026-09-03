@@ -7,6 +7,7 @@
 //! What it is not: the men/score bookkeeping (that lives in [`crate::world`]).
 
 use crate::config::{GRAVITY_WORDS, WAGON_WORDS};
+use crate::score::Level;
 
 /// Wagon speed, px/tick, `1..=3` (WALK / TROT / GALLOP).
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -41,7 +42,7 @@ impl Gravity {
 }
 
 pub struct Progression {
-    pub level: i32,
+    pub level: Level,
     pub wagon: WagonSpeed,
     pub gravity: Gravity,
 }
@@ -49,7 +50,7 @@ pub struct Progression {
 impl Default for Progression {
     fn default() -> Self {
         Self {
-            level: 1,
+            level: Level::ONE,
             wagon: WagonSpeed(1),
             gravity: Gravity(4),
         }
@@ -61,7 +62,7 @@ impl Progression {
     /// *after* wagon speed has already reached its max on a previous level, since
     /// the guard reads the pre-increment wagon speed (`ResetManHanging`).
     pub fn level_up(&mut self) {
-        self.level += 1;
+        self.level = self.level.next();
         if self.wagon.0 == WagonSpeed::MAX && self.gravity.0 > 1 {
             self.gravity.0 -= 1;
         }
@@ -87,11 +88,11 @@ mod tests {
             (7, 3, 1),
         ];
         let mut p = Progression::default();
-        assert_eq!((p.level, p.wagon.px(), p.gravity.px()), (1, 1, 4));
+        assert_eq!((p.level.get(), p.wagon.px(), p.gravity.px()), (1, 1, 4));
         for &(level, wagon, gravity) in &expected {
             p.level_up();
             assert_eq!(
-                (p.level, p.wagon.px(), p.gravity.px()),
+                (p.level.get(), p.wagon.px(), p.gravity.px()),
                 (level, wagon, gravity)
             );
         }

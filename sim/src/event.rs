@@ -17,6 +17,7 @@
 //!
 //! [`World::tick`]: crate::world::World::tick
 
+use crate::score::{Height, Level, Points, Score};
 use crate::stuntman::{Outcome, Wreck};
 
 /// A destination for [`Event`]s produced during a tick.
@@ -68,8 +69,8 @@ pub enum Event {
     /// *cause* — the celebration/crash it triggers announces itself separately.
     Resolved {
         outcome: Outcome,
-        points: i32,
-        height: i32,
+        points: Points,
+        height: Height,
     },
     /// The success backflip animation began (emitted as the state is entered, so
     /// it proves the celebration actually started, not merely that a man landed).
@@ -80,7 +81,7 @@ pub enum Event {
     /// `men_left` still to play this level.
     ManRetired { men_left: i32 },
     /// All five men landed; the game advanced to `level`.
-    LevelCleared { level: i32 },
+    LevelCleared { level: Level },
     /// The game ended, with this final `score`.
-    GameEnded { score: i32 },
+    GameEnded { score: Score },
 }

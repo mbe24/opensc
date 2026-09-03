@@ -21,7 +21,7 @@ use canvas::Canvas;
 use config::{GROUND_Y, MAN_H, TICK_PERIOD, WAGON_H, WAGON_W};
 use macroquad::prelude::*;
 use stuntcopter_sim::stuntman::{Splat, Stuntman, Wreck};
-use stuntcopter_sim::{RenderState, Sprite, World};
+use stuntcopter_sim::{Level, RenderState, Sprite, World};
 
 fn window_conf() -> Conf {
     Conf {
@@ -280,7 +280,7 @@ fn draw_paused(assets: &Assets) {
 
 /// The "LEVEL n" banner shown briefly after clearing a level — the original's
 /// LevelButton, drawn at its END/LEVEL slot (v=200).
-fn draw_level_banner(assets: &Assets, level: i32) {
+fn draw_level_banner(assets: &Assets, level: Level) {
     let mut label = draw::StackStr::<16>::new();
     let _ = write!(label, "LEVEL {level}");
     button(assets, label.as_str(), 200.0);
