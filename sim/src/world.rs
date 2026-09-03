@@ -12,6 +12,7 @@ use crate::cloud::Cloud;
 use crate::config::{COPTER_H, GROUND_Y, MAN_H, MAN_HANG_OFFSET, MEN_PER_LEVEL, WAGON_H};
 use crate::copter::Copter;
 use crate::event::{Event, EventSink};
+use crate::geom::Pos;
 use crate::intents::Intents;
 use crate::level::Progression;
 use crate::rng::Rng;
@@ -68,9 +69,9 @@ pub struct World {
     /// Debug/testing: when `Some(x)`, the wagon is frozen at `x` instead of
     /// rolling, so reproducible landing scenarios can be set up.
     wagon_pinned: Option<i32>,
-    /// Debug/testing: when `Some((x, y))`, the copter is held there (rotor still
+    /// Debug/testing: when `Some(pos)`, the copter is held there (rotor still
     /// spinning) instead of flying, to line a drop up exactly.
-    copter_pinned: Option<(i32, i32)>,
+    copter_pinned: Option<Pos>,
 }
 
 impl Default for World {
@@ -101,10 +102,10 @@ impl Default for World {
 /// refresh rate.
 #[derive(Clone, Copy)]
 pub struct RenderState {
-    pub copter: (i32, i32),
+    pub copter: Pos,
     pub wagon_x: i32,
-    pub cloud: (i32, i32),
-    pub faller: Option<(i32, i32)>,
+    pub cloud: Pos,
+    pub faller: Option<Pos>,
 }
 
 /// A pending stuntman transition, computed while the state is borrowed and
@@ -125,12 +126,11 @@ impl World {
     /// [`crate::EventLog`] to collect them.
     pub fn tick(&mut self, intents: &Intents, sink: &mut dyn EventSink) {
         match self.copter_pinned {
-            Some((x, y)) => {
-                self.copter.x = x;
-                self.copter.y = y;
+            Some(pos) => {
+                self.copter.pos = pos;
                 self.copter.animate();
             }
-            None => self.copter.tick(intents.req_dh, intents.req_dv),
+            None => self.copter.tick(intents.req),
         }
         match self.wagon_pinned {
             Some(x) => self.wagon.x = x,
@@ -184,31 +184,28 @@ impl World {
         self.wagon_pinned.is_some()
     }
 
-    /// Debug/testing: hold the copter at `Some((x, y))`, or let it fly with
-    /// `None`. Combined with [`World::pin_wagon`], this lines up a drop exactly.
-    pub fn pin_copter(&mut self, pos: Option<(i32, i32)>) {
+    /// Debug/testing: hold the copter at `Some(pos)`, or let it fly with `None`.
+    /// Combined with [`World::pin_wagon`], this lines up a drop exactly.
+    pub fn pin_copter(&mut self, pos: Option<Pos>) {
         self.copter_pinned = pos;
     }
 
     /// The pinned copter position, if any (so the debug UI can nudge it).
     #[must_use]
-    pub fn copter_pinned(&self) -> Option<(i32, i32)> {
+    pub fn copter_pinned(&self) -> Option<Pos> {
         self.copter_pinned
     }
 
     /// The hanging man's top-left, tracking the copter.
     #[must_use]
-    pub fn hang_pos(&self) -> (i32, i32) {
-        (
-            self.copter.x + MAN_HANG_OFFSET.0,
-            self.copter.y + MAN_HANG_OFFSET.1,
-        )
+    pub fn hang_pos(&self) -> Pos {
+        self.copter.pos + MAN_HANG_OFFSET
     }
 
     /// Current copter height above the ground, as shown in the HUD.
     #[must_use]
     pub fn height(&self) -> i32 {
-        (GROUND_Y - (self.copter.y + COPTER_H)).max(0)
+        (GROUND_Y - (self.copter.pos.y + COPTER_H)).max(0)
     }
 
     /// Zero-based index of the man currently in play (0..=4).
@@ -221,11 +218,11 @@ impl World {
     #[must_use]
     pub fn render_state(&self) -> RenderState {
         RenderState {
-            copter: (self.copter.x, self.copter.y),
+            copter: self.copter.pos,
             wagon_x: self.wagon.x,
-            cloud: (self.cloud.x, self.cloud.y),
+            cloud: self.cloud.pos,
             faller: match &self.stuntman {
-                Stuntman::Falling(f) => Some((f.x, f.y)),
+                Stuntman::Falling(f) => Some(f.pos),
                 _ => None,
             },
         }
@@ -243,15 +240,15 @@ impl World {
             Stuntman::Falling(ref mut faller) => {
                 // Behind a cloud: fall a fixed 1px with a random wind gust;
                 // otherwise fall at gravity.
-                if self.cloud.covers(faller.x, faller.y) {
+                if self.cloud.covers(faller.pos) {
                     faller.fall(1);
                     faller.gust(self.rng.range(-2, 3));
                 } else {
                     faller.fall(self.progression.gravity.px());
                 }
-                if faller.y + MAN_H > GROUND_Y - WAGON_H {
-                    let outcome = classify(faller.x, self.wagon.x);
-                    Next::Land(outcome, faller.height_of_drop, faller.x)
+                if faller.pos.y + MAN_H > GROUND_Y - WAGON_H {
+                    let outcome = classify(faller.pos.x, self.wagon.x);
+                    Next::Land(outcome, faller.height_of_drop, faller.pos.x)
                 } else {
                     Next::Nothing
                 }
@@ -272,9 +269,9 @@ impl World {
         match next {
             Next::Nothing => {}
             Next::StartFall => {
-                let (x, y) = self.hang_pos();
-                let height = GROUND_Y - (self.copter.y + COPTER_H);
-                self.stuntman = Stuntman::Falling(Faller::new(x, y, height));
+                let pos = self.hang_pos();
+                let height = GROUND_Y - (self.copter.pos.y + COPTER_H);
+                self.stuntman = Stuntman::Falling(Faller::new(pos, height));
                 sink.emit(Event::Dropped);
             }
             Next::Land(outcome, height, x) => {
@@ -365,18 +362,17 @@ impl World {
 mod tests {
     use super::World;
     use crate::event::{Event, EventLog, NoSink};
+    use crate::geom::{Pos, Vel};
     use crate::intents::Intents;
     use crate::stuntman::{Flip, Outcome, Splat, Stuntman, Wreck};
 
     const IDLE: Intents = Intents {
-        req_dh: 0,
-        req_dv: 0,
+        req: Vel::new(0, 0),
         drop: false,
     };
 
     const DROP: Intents = Intents {
-        req_dh: 0,
-        req_dv: 0,
+        req: Vel::new(0, 0),
         drop: true,
     };
 
@@ -420,10 +416,10 @@ mod tests {
         let mut world = World::default();
         let wagon_x = 200;
         world.pin_wagon(Some(wagon_x));
-        // The man's x is copter.x + MAN_HANG_OFFSET.0; aim it 14px into the hay
+        // The man's x is copter.x + MAN_HANG_OFFSET.dh; aim it 14px into the hay
         // (well inside the `< 34` success band), and drop from high up.
-        let copter_x = wagon_x + 14 - super::MAN_HANG_OFFSET.0;
-        world.pin_copter(Some((copter_x, 40)));
+        let copter_x = wagon_x + 14 - super::MAN_HANG_OFFSET.dh;
+        world.pin_copter(Some(Pos::new(copter_x, 40)));
 
         world.tick(&DROP, &mut NoSink);
         assert!(matches!(world.stuntman, Stuntman::Falling(_)));
@@ -447,7 +443,7 @@ mod tests {
         let mut world = World::default();
         let wagon_x = 200;
         world.pin_wagon(Some(wagon_x));
-        world.pin_copter(Some((wagon_x + 14 - super::MAN_HANG_OFFSET.0, 40)));
+        world.pin_copter(Some(Pos::new(wagon_x + 14 - super::MAN_HANG_OFFSET.dh, 40)));
 
         // An EventLog collects what the tick reports — no timing or rendering.
         let mut log = EventLog::default();

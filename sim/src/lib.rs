@@ -15,6 +15,7 @@ pub mod cloud;
 pub mod config;
 pub mod copter;
 pub mod event;
+pub mod geom;
 pub mod intents;
 pub mod level;
 pub mod rng;
@@ -24,6 +25,7 @@ pub mod wagon;
 pub mod world;
 
 pub use event::{Event, EventLog, EventSink, NoSink};
+pub use geom::{Pos, Vel};
 pub use intents::Intents;
 pub use sprite::{Sprite, SrcRect};
 pub use world::{RenderState, World};

@@ -142,7 +142,8 @@ const YOKE_GAIN: f32 = 4.0;
 /// swung by the copter's velocity, clipped to the window (as the copter moves,
 /// the cross slides behind the frame — exactly the original's masked CopyBits).
 fn draw_yoke(assets: &Assets, world: &World) {
-    let (vx, vy) = world.copter.velocity();
+    let vel = world.copter.velocity();
+    let (vx, vy) = (vel.dh, vel.dv);
     let (wx, wy, ww, wh) = HUD_YOKE_WIN;
     let (win_l, win_t) = ((SB_X + wx) as f32, (SB_Y + wy) as f32);
     let (win_w, win_h) = (ww as f32, wh as f32);

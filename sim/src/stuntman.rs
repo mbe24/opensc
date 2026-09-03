@@ -8,6 +8,7 @@
 //! What it is not: the score/lives bookkeeping — [`crate::world::World`] drives
 //! transitions and owns that state.
 
+use crate::geom::Pos;
 use crate::sprite::Sprite;
 
 /// How a drop ended, by the man's horizontal offset from the wagon.
@@ -21,8 +22,7 @@ pub enum Outcome {
 
 /// A man in free fall.
 pub struct Faller {
-    pub x: i32,
-    pub y: i32,
+    pub pos: Pos,
     /// Captured at drop time; scores `level * height_of_drop` on a landing.
     pub height_of_drop: i32,
     frame: u8,
@@ -30,10 +30,9 @@ pub struct Faller {
 
 impl Faller {
     #[must_use]
-    pub fn new(x: i32, y: i32, height_of_drop: i32) -> Self {
+    pub fn new(pos: Pos, height_of_drop: i32) -> Self {
         Self {
-            x,
-            y,
+            pos,
             height_of_drop,
             frame: 0,
         }
@@ -42,13 +41,13 @@ impl Faller {
     /// Fall `dy` pixels and advance the tumble animation. `dy` is gravity in open
     /// air, but a fixed 1px while falling through a cloud.
     pub fn fall(&mut self, dy: i32) {
-        self.y += dy;
+        self.pos.y += dy;
         self.frame = (self.frame + 1) % 5;
     }
 
     /// Nudge horizontally (a wind gust behind a cloud).
     pub fn gust(&mut self, dx: i32) {
-        self.x += dx;
+        self.pos.x += dx;
     }
 
     #[must_use]

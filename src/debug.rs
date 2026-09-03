@@ -17,7 +17,7 @@
 use std::collections::VecDeque;
 
 use macroquad::prelude::*;
-use stuntcopter_sim::{Event, World};
+use stuntcopter_sim::{Event, Pos, World};
 
 use crate::assets::Assets;
 use crate::config;
@@ -68,10 +68,7 @@ impl Debug {
             world.pin_wagon(pin);
         }
         if is_key_pressed(KeyCode::P) {
-            let pin = world
-                .copter_pinned()
-                .is_none()
-                .then_some((world.copter.x, world.copter.y));
+            let pin = world.copter_pinned().is_none().then_some(world.copter.pos);
             world.pin_copter(pin);
         }
         if is_key_pressed(KeyCode::L) {
@@ -86,16 +83,19 @@ impl Debug {
             };
             let wagon_x = (config::LOGICAL_W - config::WAGON_W) / 2;
             world.pin_wagon(Some(wagon_x));
-            world.pin_copter(Some((wagon_x + HAY_INSET - config::MAN_HANG_OFFSET.0, y)));
+            world.pin_copter(Some(Pos::new(
+                wagon_x + HAY_INSET - config::MAN_HANG_OFFSET.dh,
+                y,
+            )));
         }
-        if let Some((mut x, mut y)) = world.copter_pinned() {
-            x += NUDGE
+        if let Some(mut pos) = world.copter_pinned() {
+            pos.x += NUDGE
                 * (i32::from(is_key_pressed(KeyCode::Right))
                     - i32::from(is_key_pressed(KeyCode::Left)));
-            y += NUDGE
+            pos.y += NUDGE
                 * (i32::from(is_key_pressed(KeyCode::Down))
                     - i32::from(is_key_pressed(KeyCode::Up)));
-            world.pin_copter(Some((x, y)));
+            world.pin_copter(Some(pos));
         }
     }
 

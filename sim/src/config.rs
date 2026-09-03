@@ -7,6 +7,8 @@
 //! re-exports this module so both sides share one source of truth.
 #![allow(dead_code)]
 
+use crate::geom::{Pos, Vel};
+
 /// Logical playfield width — the classic 512-pixel Macintosh screen.
 pub const LOGICAL_W: i32 = 512;
 /// Logical playfield height — the classic Macintosh screen.
@@ -41,7 +43,7 @@ pub const DELTA_RECT: (i32, i32, i32, i32) = (-4, -3, 4, 4);
 pub const COPTER_W: i32 = 74;
 pub const COPTER_H: i32 = 26;
 /// Copter spawn position (top-left).
-pub const COPTER_START: (i32, i32) = (212, 110);
+pub const COPTER_START: Pos = Pos::new(212, 110);
 /// Copter may not descend below this bottom edge (`WagonRect.top - 10`).
 pub const COPTER_BOTTOM_LIMIT: i32 = (GROUND_Y - WAGON_H) - 10;
 
@@ -57,7 +59,7 @@ pub const MAN_W: i32 = 14;
 pub const MAN_H: i32 = 16;
 /// The hanging man's offset from the copter's top-left (`CoptRect.left+36`,
 /// `top+23`).
-pub const MAN_HANG_OFFSET: (i32, i32) = (36, 23);
+pub const MAN_HANG_OFFSET: Vel = Vel::new(36, 23);
 
 // --- Progression -----------------------------------------------------------
 

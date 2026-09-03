@@ -224,13 +224,13 @@ fn draw_scene(
 
     let cur = world.render_state();
     let cloud = (
-        lerp(prev.cloud.0, cur.cloud.0, alpha),
-        lerp(prev.cloud.1, cur.cloud.1, alpha),
+        lerp(prev.cloud.x, cur.cloud.x, alpha),
+        lerp(prev.cloud.y, cur.cloud.y, alpha),
     );
     let wagon_x = lerp(prev.wagon_x, cur.wagon_x, alpha);
     let copter = (
-        lerp(prev.copter.0, cur.copter.0, alpha),
-        lerp(prev.copter.1, cur.copter.1, alpha),
+        lerp(prev.copter.x, cur.copter.x, alpha),
+        lerp(prev.copter.y, cur.copter.y, alpha),
     );
 
     draw::sprite(assets, world.cloud.sprite(), cloud.0, cloud.1, theme::INK);
@@ -330,14 +330,17 @@ fn draw_stuntman(
     let wagon_y = (GROUND_Y - WAGON_H) as f32;
     match &world.stuntman {
         Stuntman::Hanging => {
-            let x = copter.0 + config::MAN_HANG_OFFSET.0 as f32;
-            let y = copter.1 + config::MAN_HANG_OFFSET.1 as f32;
+            let x = copter.0 + config::MAN_HANG_OFFSET.dh as f32;
+            let y = copter.1 + config::MAN_HANG_OFFSET.dv as f32;
             draw::sprite(assets, Sprite::ManHang, x, y, ink);
         }
         Stuntman::Falling(faller) => {
             let (x, y) = match prev.faller {
-                Some(p) => (lerp(p.0, faller.x, alpha), lerp(p.1, faller.y, alpha)),
-                None => (faller.x as f32, faller.y as f32),
+                Some(p) => (
+                    lerp(p.x, faller.pos.x, alpha),
+                    lerp(p.y, faller.pos.y, alpha),
+                ),
+                None => (faller.pos.x as f32, faller.pos.y as f32),
             };
             draw::sprite(assets, faller.sprite(), x, y, ink);
         }

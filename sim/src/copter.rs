@@ -6,6 +6,7 @@
 //! `AnimateOneLoop` in the original.
 
 use crate::config::{COPTER_BOTTOM_LIMIT, COPTER_H, COPTER_START, COPTER_W, LOGICAL_W};
+use crate::geom::{Pos, Vel};
 use crate::sprite::Sprite;
 
 /// Copter can drift this far past a screen edge before wrapping (`BorderRect`).
@@ -16,11 +17,9 @@ const TOP_LIMIT: i32 = -4;
 
 pub struct Copter {
     /// Top-left position, logical pixels.
-    pub x: i32,
-    pub y: i32,
+    pub pos: Pos,
     /// Current velocity, px/tick.
-    dh: i32,
-    dv: i32,
+    vel: Vel,
     /// Rotor animation frame, 0..3.
     frame: u8,
 }
@@ -28,10 +27,8 @@ pub struct Copter {
 impl Default for Copter {
     fn default() -> Self {
         Self {
-            x: COPTER_START.0,
-            y: COPTER_START.1,
-            dh: 0,
-            dv: 0,
+            pos: COPTER_START,
+            vel: Vel::default(),
             frame: 0,
         }
     }
@@ -39,13 +36,12 @@ impl Default for Copter {
 
 impl Copter {
     /// Advance one tick toward the requested velocity, then move and confine.
-    pub fn tick(&mut self, req_dh: i32, req_dv: i32) {
+    pub fn tick(&mut self, req: Vel) {
         // Inertia: step velocity one pixel/tick toward the request.
-        self.dh += (req_dh - self.dh).signum();
-        self.dv += (req_dv - self.dv).signum();
+        self.vel.dh += (req.dh - self.vel.dh).signum();
+        self.vel.dv += (req.dv - self.vel.dv).signum();
 
-        self.x += self.dh;
-        self.y += self.dv;
+        self.pos += self.vel;
 
         self.confine();
         self.frame = (self.frame + 1) % 3;
@@ -53,16 +49,16 @@ impl Copter {
 
     /// Wrap horizontally at the far edges; clamp vertically to the flight band.
     fn confine(&mut self) {
-        if self.x > WRAP_RIGHT {
-            self.x = -COPTER_W;
-        } else if self.x < WRAP_LEFT {
-            self.x = LOGICAL_W - 2;
+        if self.pos.x > WRAP_RIGHT {
+            self.pos.x = -COPTER_W;
+        } else if self.pos.x < WRAP_LEFT {
+            self.pos.x = LOGICAL_W - 2;
         }
 
-        if self.y < TOP_LIMIT {
-            self.y = TOP_LIMIT;
-        } else if self.y + COPTER_H > COPTER_BOTTOM_LIMIT {
-            self.y = COPTER_BOTTOM_LIMIT - COPTER_H;
+        if self.pos.y < TOP_LIMIT {
+            self.pos.y = TOP_LIMIT;
+        } else if self.pos.y + COPTER_H > COPTER_BOTTOM_LIMIT {
+            self.pos.y = COPTER_BOTTOM_LIMIT - COPTER_H;
         }
     }
 
@@ -73,8 +69,8 @@ impl Copter {
 
     /// Current velocity (px/tick), for the HUD yoke indicator.
     #[must_use]
-    pub fn velocity(&self) -> (i32, i32) {
-        (self.dh, self.dv)
+    pub fn velocity(&self) -> Vel {
+        self.vel
     }
 
     /// Current rotor sprite.

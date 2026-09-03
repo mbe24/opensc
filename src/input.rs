@@ -14,7 +14,7 @@
 //! drained once per tick so a fast or slow frame can't lose or double it.
 
 use macroquad::prelude::*;
-use stuntcopter_sim::Intents;
+use stuntcopter_sim::{Intents, Vel};
 
 use crate::canvas::Canvas;
 use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
@@ -55,13 +55,9 @@ impl Input {
         let drop = is_mouse_button_pressed(MouseButton::Left) || is_key_pressed(KeyCode::Space);
 
         // Keyboard overrides everything while a steer key is held.
-        if let Some((req_dh, req_dv)) = keyboard_steer() {
+        if let Some(req) = keyboard_steer() {
             self.stick = None;
-            return Intents {
-                req_dh,
-                req_dv,
-                drop,
-            };
+            return Intents { req, drop };
         }
 
         let mut fingers = screen::fingers().peekable();
@@ -77,17 +73,13 @@ impl Input {
         }
 
         // Desktop: mouse-as-joystick from the pointer's offset to the canvas centre.
-        let (req_dh, req_dv) = if mouse_steer {
+        let req = if mouse_steer {
             let p = canvas.to_canvas(screen::mouse());
             velocity(axis(p.x(), LOGICAL_W as f32), axis(p.y(), LOGICAL_H as f32))
         } else {
-            (0, 0)
+            Vel::default()
         };
-        Intents {
-            req_dh,
-            req_dv,
-            drop,
-        }
+        Intents { req, drop }
     }
 
     /// Whether a touch has ever been seen (so the UI can show touch hints).
@@ -105,7 +97,7 @@ impl Input {
         let win = screen::window().to_physical(screen::dpi());
         let divider = win.w() * STEER_FRACTION;
         let radius = (win.h() * STICK_RADIUS_FRAC).max(1.0);
-        let mut req = (0, 0);
+        let mut req = Vel::default();
         let mut steering = false;
         let mut drop = false;
         for f in fingers {
@@ -126,16 +118,12 @@ impl Input {
         if !steering {
             self.stick = None;
         }
-        Intents {
-            req_dh: req.0,
-            req_dv: req.1,
-            drop,
-        }
+        Intents { req, drop }
     }
 }
 
 /// Full-deflection steering from the keyboard, or `None` if no steer key is held.
-fn keyboard_steer() -> Option<(i32, i32)> {
+fn keyboard_steer() -> Option<Vel> {
     let (min_h, min_v, max_h, max_v) = DELTA_RECT;
     let held = |keys: &[KeyCode]| keys.iter().any(|&k| is_key_down(k));
 
@@ -158,13 +146,13 @@ fn keyboard_steer() -> Option<(i32, i32)> {
         dir_v = max_v;
         active = true;
     }
-    active.then_some((dir_h, dir_v))
+    active.then_some(Vel::new(dir_h, dir_v))
 }
 
 /// Map normalized axes in `[-1, 1]` to a requested velocity within [`DELTA_RECT`].
 /// The vertical range is asymmetric (the copter rises faster than it climbs), so
 /// each direction scales against its own extreme and the centre is a true hover.
-fn velocity(nx: f32, ny: f32) -> (i32, i32) {
+fn velocity(nx: f32, ny: f32) -> Vel {
     let (min_h, min_v, max_h, max_v) = DELTA_RECT;
     let req_h = (nx * max_h as f32).round() as i32;
     let req_v = if ny < 0.0 {
@@ -172,7 +160,7 @@ fn velocity(nx: f32, ny: f32) -> (i32, i32) {
     } else {
         (ny * max_v as f32).round() as i32
     };
-    (req_h.clamp(min_h, max_h), req_v.clamp(min_v, max_v))
+    Vel::new(req_h.clamp(min_h, max_h), req_v.clamp(min_v, max_v))
 }
 
 /// Normalize a coordinate to `[-1, 1]` about the centre of `size`, with a dead
