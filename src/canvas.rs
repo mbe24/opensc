@@ -1,9 +1,10 @@
 //! The virtual canvas.
 //!
 //! What it is: a fixed `LOGICAL_W`×`LOGICAL_H` render target that the whole game
-//! draws into, then integer-scaled and letterboxed onto the real window. This
-//! keeps the 1-bit pixel art crisp at any resolution (4K down to a phone) and
-//! gives every platform a single coordinate space.
+//! draws into, then scaled to fit the real window (aspect-preserving, so it
+//! fills the available space with letterbox bars only on the longer axis) and
+//! sampled nearest-neighbour to keep the 1-bit pixel art crisp. Gives every
+//! platform a single coordinate space, from 4K down to a phone.
 //!
 //! What it is not: a scene graph or camera system — it only owns the offscreen
 //! target and the screen<->canvas mapping.
@@ -52,8 +53,7 @@ impl Canvas {
     }
 
     /// Present the canvas: fill the window with `bars`, then draw the canvas
-    /// centered at the largest whole integer scale that fits (fractional only
-    /// when the window is smaller than the canvas).
+    /// centered at the largest scale that fits, so it fills the available space.
     pub fn present(&self, bars: Color) {
         clear_background(bars);
         let l = Layout::compute();
@@ -96,13 +96,11 @@ struct Layout {
 impl Layout {
     fn compute() -> Self {
         let (sw, sh) = (screen_width(), screen_height());
-        let raw = (sw / LOGICAL_W as f32).min(sh / LOGICAL_H as f32);
-        // Integer scale when the canvas fits; fractional only on tiny windows.
-        let scale = if raw >= 1.0 {
-            raw.floor()
-        } else {
-            raw.max(f32::EPSILON)
-        };
+        // Largest aspect-preserving scale that fits: fills one axis, letterboxes
+        // the other. Fractional is fine — nearest sampling keeps pixels crisp.
+        let scale = (sw / LOGICAL_W as f32)
+            .min(sh / LOGICAL_H as f32)
+            .max(f32::EPSILON);
         Self {
             scale,
             offset_x: (sw - LOGICAL_W as f32 * scale) * 0.5,
