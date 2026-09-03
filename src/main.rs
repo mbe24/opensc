@@ -33,9 +33,10 @@ fn window_conf() -> Conf {
 #[macroquad::main(window_conf)]
 async fn main() {
     install_panic_logging();
-    // A touch must not also fire a synthetic mouse event, or every tap would be
-    // processed twice.
-    simulate_mouse_with_touch(false);
+    // Translate touches into mouse events so mobile works through the same path:
+    // drag to steer (pointer position), tap to drop. We only read the mouse, not
+    // touches, so there's no double-processing.
+    simulate_mouse_with_touch(true);
 
     let assets = Assets::load();
     let mut audio = Audio::load().await;
