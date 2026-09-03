@@ -18,6 +18,7 @@ use stuntcopter_sim::Intents;
 
 use crate::canvas::Canvas;
 use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
+use crate::screen::{self, Finger, Physical, Point};
 
 /// Fraction around neutral that reads as no input, so hovering is stable.
 const DEAD_ZONE: f32 = 0.10;
@@ -39,11 +40,12 @@ pub struct Input {
 }
 
 /// A floating joystick: `anchor` is where the thumb first landed (neutral); the
-/// current position comes from the live touch each frame. In screen pixels.
+/// current position comes from the live touch each frame. In physical pixels, to
+/// match the touch positions it's compared against.
 #[derive(Clone, Copy)]
 struct Stick {
     id: u64,
-    anchor: Vec2,
+    anchor: Point<Physical>,
 }
 
 impl Input {
@@ -62,10 +64,10 @@ impl Input {
             };
         }
 
-        let ts = touches();
-        if !ts.is_empty() {
+        let mut fingers = screen::fingers().peekable();
+        if fingers.peek().is_some() {
             self.touch_seen = true;
-            return self.touch_intents(&ts);
+            return self.touch_intents(fingers);
         }
         self.stick = None;
 
@@ -76,9 +78,8 @@ impl Input {
 
         // Desktop: mouse-as-joystick from the pointer's offset to the canvas centre.
         let (req_dh, req_dv) = if mouse_steer {
-            let (mx, my) = mouse_position();
-            let p = canvas.screen_to_canvas(vec2(mx, my));
-            velocity(axis(p.x, LOGICAL_W as f32), axis(p.y, LOGICAL_H as f32))
+            let p = canvas.to_canvas(screen::mouse());
+            velocity(axis(p.x(), LOGICAL_W as f32), axis(p.y(), LOGICAL_H as f32))
         } else {
             (0, 0)
         };
@@ -95,31 +96,30 @@ impl Input {
         self.touch_seen
     }
 
-    fn touch_intents(&mut self, ts: &[Touch]) -> Intents {
-        // `touches()` reports positions in physical pixels, but `screen_width()`
-        // / `screen_height()` are logical (macroquad divides them by the DPI
-        // scale). Scale the screen size back into physical space so the split and
-        // the joystick radius line up with the touch positions — otherwise on a
-        // phone with `devicePixelRatio` D the steer zone shrinks to
-        // `STEER_FRACTION / D` of the width and the stick is D× too sensitive.
-        let dpi = screen_dpi_scale();
-        let divider = screen_width() * dpi * STEER_FRACTION;
-        let radius = (screen_height() * dpi * STICK_RADIUS_FRAC).max(1.0);
+    fn touch_intents(&mut self, fingers: impl Iterator<Item = Finger>) -> Intents {
+        // Everything here is in physical pixels — the space the touch positions
+        // come in. The window size is logical, so convert it once; skipping this
+        // is what once shrank the steer zone to `STEER_FRACTION / dpi` of the
+        // width and made the stick `dpi`× too sensitive on high-DPI phones. The
+        // type system now rejects mixing the two spaces.
+        let win = screen::window().to_physical(screen::dpi());
+        let divider = win.w() * STEER_FRACTION;
+        let radius = (win.h() * STICK_RADIUS_FRAC).max(1.0);
         let mut req = (0, 0);
         let mut steering = false;
         let mut drop = false;
-        for t in ts {
-            if t.position.x < divider {
+        for f in fingers {
+            if f.at.x() < divider {
                 steering = true;
                 // Floating joystick: keep the anchor from when this touch began.
                 let anchor = match self.stick {
-                    Some(s) if s.id == t.id => s.anchor,
-                    _ => t.position,
+                    Some(s) if s.id == f.id => s.anchor,
+                    _ => f.at,
                 };
-                self.stick = Some(Stick { id: t.id, anchor });
-                let d = t.position - anchor;
-                req = velocity(axis_norm(d.x / radius), axis_norm(d.y / radius));
-            } else if matches!(t.phase, TouchPhase::Started) {
+                self.stick = Some(Stick { id: f.id, anchor });
+                let d = f.at - anchor;
+                req = velocity(axis_norm(d.x() / radius), axis_norm(d.y() / radius));
+            } else if matches!(f.phase, TouchPhase::Started) {
                 drop = true;
             }
         }

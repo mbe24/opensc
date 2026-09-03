@@ -10,6 +10,7 @@ mod draw;
 mod font;
 mod hud;
 mod input;
+mod screen;
 mod theme;
 
 use std::fmt::Write;
@@ -77,10 +78,7 @@ async fn main() {
         drop_pending |= intents.drop;
         // On the menu screens (attract/paused/game-over) a tap anywhere confirms,
         // so mobile players don't have to find the drop half to press BEGIN.
-        let any_tap = touches()
-            .iter()
-            .any(|t| matches!(t.phase, TouchPhase::Started));
-        let confirm = drop_pending || any_tap || is_key_pressed(KeyCode::Enter);
+        let confirm = drop_pending || screen::any_tap() || is_key_pressed(KeyCode::Enter);
         let exit = is_key_pressed(KeyCode::Backspace) || is_key_pressed(KeyCode::Escape);
 
         match scene {

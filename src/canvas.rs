@@ -12,6 +12,7 @@
 use macroquad::prelude::*;
 
 use crate::config::{LOGICAL_H, LOGICAL_W};
+use crate::screen::{Canvas as CanvasSpace, Logical, Point};
 
 pub struct Canvas {
     target: RenderTarget,
@@ -72,16 +73,17 @@ impl Canvas {
         );
     }
 
-    /// Map a window-space point (e.g. the mouse) into logical canvas coordinates,
-    /// clamped to the playfield. Recomputed per call, so window resizes are free.
-    // Consumed by the input layer (next milestone); a canvas-space operation.
-    #[allow(dead_code, clippy::unused_self)]
+    /// Map a logical window-space point (e.g. the mouse) into canvas
+    /// coordinates, clamped to the playfield. Recomputed per call, so window
+    /// resizes are free. The typed spaces make the units unmistakable: a
+    /// physical touch position won't type-check here without converting first.
+    #[allow(clippy::unused_self)]
     #[must_use]
-    pub fn screen_to_canvas(&self, screen: Vec2) -> Vec2 {
+    pub fn to_canvas(&self, p: Point<Logical>) -> Point<CanvasSpace> {
         let l = Layout::compute();
-        vec2(
-            ((screen.x - l.offset_x) / l.scale).clamp(0.0, LOGICAL_W as f32),
-            ((screen.y - l.offset_y) / l.scale).clamp(0.0, LOGICAL_H as f32),
+        Point::new(
+            ((p.x() - l.offset_x) / l.scale).clamp(0.0, LOGICAL_W as f32),
+            ((p.y() - l.offset_y) / l.scale).clamp(0.0, LOGICAL_H as f32),
         )
     }
 }
