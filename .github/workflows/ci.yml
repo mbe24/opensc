@@ -20,6 +20,12 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
 
+      # macroquad's `audio` feature links quad-alsa-sys (`-lasound`) on Linux;
+      # the native build/clippy/test steps need the ALSA dev headers. (X11/GL are
+      # dlopen'd at runtime, so they need no dev packages here.)
+      - name: Install ALSA dev headers
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev
+
       - name: Format
         run: cargo fmt --check
 
