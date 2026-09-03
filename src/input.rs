@@ -96,8 +96,15 @@ impl Input {
     }
 
     fn touch_intents(&mut self, ts: &[Touch]) -> Intents {
-        let divider = screen_width() * STEER_FRACTION;
-        let radius = (screen_height() * STICK_RADIUS_FRAC).max(1.0);
+        // `touches()` reports positions in physical pixels, but `screen_width()`
+        // / `screen_height()` are logical (macroquad divides them by the DPI
+        // scale). Scale the screen size back into physical space so the split and
+        // the joystick radius line up with the touch positions — otherwise on a
+        // phone with `devicePixelRatio` D the steer zone shrinks to
+        // `STEER_FRACTION / D` of the width and the stick is D× too sensitive.
+        let dpi = screen_dpi_scale();
+        let divider = screen_width() * dpi * STEER_FRACTION;
+        let radius = (screen_height() * dpi * STICK_RADIUS_FRAC).max(1.0);
         let mut req = (0, 0);
         let mut steering = false;
         let mut drop = false;
