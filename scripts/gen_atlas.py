@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from pict import read_ad_rsrc, get_pict, decode_pict
 
 REF = r"D:\training\opensc\reference\stuntcopter"
-ASSETS = r"D:\training\opensc\assets"
+ASSETS = r"D:\training\opensc\app\assets"
 SIM = r"D:\training\opensc\sim\src"
 PAD = 2
 ATLAS_W = 512

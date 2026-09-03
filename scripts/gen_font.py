@@ -10,8 +10,8 @@ import os
 import numpy as np
 from PIL import Image, ImageFont, ImageDraw
 
-ASSETS = r"D:\training\opensc\assets"
-SRC = r"D:\training\opensc\src"
+ASSETS = r"D:\training\opensc\app\assets"
+SRC = r"D:\training\opensc\app\src"
 FONT_PATH = r"C:\Windows\Fonts\arialbd.ttf"
 SIZE = 12
 CELL_H = 13          # fixed cell height so all glyphs share a baseline

@@ -1,0 +1,33 @@
+[package]
+name = "stuntcopter"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "A faithful, multiplatform Rust/macroquad port of Duane Blehm's 1986 Macintosh game StuntCopter."
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/mbe24/opensc"
+# The README lives at the repo root (one level up from this crate).
+readme = "../README.md"
+keywords = ["game", "macroquad", "wasm", "retro"]
+categories = ["games"]
+
+[features]
+# Off by default: in-game debug/test controls (pin the wagon/copter, disable
+# mouse steering, on-screen event log) for lining up reproducible scenarios.
+# Build with `--features debug-controls`; a normal build compiles none of it.
+debug-controls = []
+
+[dependencies]
+# The platform-agnostic game model. It has no macroquad dependency, so the
+# simulation stays testable headless and the renderer is swappable.
+stuntcopter_sim = { path = "../sim" }
+
+# macroquad enables miniquad's `log-impl`, which routes panics and its `error!`/
+# `info!` macros to the browser console on wasm (no wasm-bindgen needed).
+# `audio` is NOT a default macroquad feature (default = []), so enable it — the
+# `audio` module compiles without it but is a silent no-op.
+macroquad = { version = "=0.4.16", features = ["audio"] }
+
+# This crate opts into the shared workspace lint gate.
+[lints]
+workspace = true

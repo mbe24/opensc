@@ -1,43 +1,18 @@
-[package]
-name = "stuntcopter"
-version = "0.1.0"
-edition = "2021"
-rust-version = "1.75"
-description = "A faithful, multiplatform Rust/macroquad port of Duane Blehm's 1986 Macintosh game StuntCopter."
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/mbe24/opensc"
-readme = "README.md"
-keywords = ["game", "macroquad", "wasm", "retro"]
-categories = ["games"]
-# `reference/` is Duane Blehm's original public-domain work (not ours to license),
-# and `dist/` is build output — neither belongs in a published package.
-exclude = ["reference/", "dist/"]
-
+# Virtual workspace: the two crates are peers.
+# - `app/` is the runnable game (window, rendering, audio, input) — the
+#   `stuntcopter` executable.
+# - `sim/` is the headless game model (rules, state, the fixed-timestep tick),
+#   with no macroquad dependency, so it stays testable headless.
 [workspace]
-members = ["sim"]
-
-[features]
-# Off by default: in-game debug/test controls (pin the wagon/copter, disable
-# mouse steering, on-screen event log) for lining up reproducible scenarios.
-# Build with `--features debug-controls`; a normal build compiles none of it.
-debug-controls = []
-
-[dependencies]
-# The platform-agnostic game model. It has no macroquad dependency, so the
-# simulation stays testable headless and the renderer is swappable.
-stuntcopter_sim = { path = "sim" }
-
-# macroquad enables miniquad's `log-impl`, which routes panics and its `error!`/
-# `info!` macros to the browser console on wasm (no wasm-bindgen needed).
-# `audio` is NOT a default macroquad feature (default = []), so enable it — the
-# `audio` module compiles without it but is a silent no-op.
-macroquad = { version = "=0.4.16", features = ["audio"] }
+members = ["app", "sim"]
+resolver = "2"
 
 # Native builds keep the default dev/release profiles (fast incremental compiles,
 # `panic = unwind` so `#[should_panic]` tests work).
 #
 # The web build uses a dedicated profile so its size/speed tuning never leaks
-# into native builds. Select it with `--profile wasm-release`.
+# into native builds. Select it with `--profile wasm-release`. Custom profiles
+# must live in the workspace root.
 [profile.wasm-release]
 inherits = "release"
 opt-level = 3
@@ -45,10 +20,6 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
-
-# This crate opts into the shared workspace lint gate.
-[lints]
-workspace = true
 
 # Lint gate, shared by every crate in the workspace. `clippy::all` is a hard
 # error (real-bug lints); `pedantic` is advisory (surfaced as warnings, not
