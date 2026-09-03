@@ -70,3 +70,36 @@ impl std::ops::Add for Vel {
         Vel::new(self.dh + o.dh, self.dv + o.dv)
     }
 }
+
+/// An inclusive range of requested velocities — the corners of the control box
+/// the input maps a stick/pointer into. Named fields keep the asymmetric
+/// vertical range (`min.dv != -max.dv`) from being transposed.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct VelRange {
+    pub min: Vel,
+    pub max: Vel,
+}
+
+impl VelRange {
+    #[must_use]
+    pub const fn new(min: Vel, max: Vel) -> Self {
+        Self { min, max }
+    }
+}
+
+/// An axis-aligned rectangle in playfield pixels — a layout box (`(x, y)`
+/// top-left, `w`×`h`). Distinct from the texture-space [`crate::sprite::SrcRect`].
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Rect {
+    pub x: i32,
+    pub y: i32,
+    pub w: i32,
+    pub h: i32,
+}
+
+impl Rect {
+    #[must_use]
+    pub const fn new(x: i32, y: i32, w: i32, h: i32) -> Self {
+        Self { x, y, w, h }
+    }
+}

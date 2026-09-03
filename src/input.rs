@@ -124,26 +124,25 @@ impl Input {
 
 /// Full-deflection steering from the keyboard, or `None` if no steer key is held.
 fn keyboard_steer() -> Option<Vel> {
-    let (min_h, min_v, max_h, max_v) = DELTA_RECT;
     let held = |keys: &[KeyCode]| keys.iter().any(|&k| is_key_down(k));
 
     let mut dir_h = 0;
     let mut dir_v = 0;
     let mut active = false;
     if held(&[KeyCode::Left, KeyCode::A]) {
-        dir_h = min_h;
+        dir_h = DELTA_RECT.min.dh;
         active = true;
     }
     if held(&[KeyCode::Right, KeyCode::D]) {
-        dir_h = max_h;
+        dir_h = DELTA_RECT.max.dh;
         active = true;
     }
     if held(&[KeyCode::Up, KeyCode::W]) {
-        dir_v = min_v;
+        dir_v = DELTA_RECT.min.dv;
         active = true;
     }
     if held(&[KeyCode::Down, KeyCode::S]) {
-        dir_v = max_v;
+        dir_v = DELTA_RECT.max.dv;
         active = true;
     }
     active.then_some(Vel::new(dir_h, dir_v))
@@ -153,14 +152,16 @@ fn keyboard_steer() -> Option<Vel> {
 /// The vertical range is asymmetric (the copter rises faster than it climbs), so
 /// each direction scales against its own extreme and the centre is a true hover.
 fn velocity(nx: f32, ny: f32) -> Vel {
-    let (min_h, min_v, max_h, max_v) = DELTA_RECT;
-    let req_h = (nx * max_h as f32).round() as i32;
+    let req_h = (nx * DELTA_RECT.max.dh as f32).round() as i32;
     let req_v = if ny < 0.0 {
-        (ny * min_v.unsigned_abs() as f32).round() as i32
+        (ny * DELTA_RECT.min.dv.unsigned_abs() as f32).round() as i32
     } else {
-        (ny * max_v as f32).round() as i32
+        (ny * DELTA_RECT.max.dv as f32).round() as i32
     };
-    Vel::new(req_h.clamp(min_h, max_h), req_v.clamp(min_v, max_v))
+    Vel::new(
+        req_h.clamp(DELTA_RECT.min.dh, DELTA_RECT.max.dh),
+        req_v.clamp(DELTA_RECT.min.dv, DELTA_RECT.max.dv),
+    )
 }
 
 /// Normalize a coordinate to `[-1, 1]` about the centre of `size`, with a dead

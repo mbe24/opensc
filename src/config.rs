@@ -8,6 +8,7 @@
 #![allow(dead_code)]
 
 pub use stuntcopter_sim::config::*;
+use stuntcopter_sim::Rect;
 
 // --- Layout: exact from OneTimeGameStuff (portRect = 512x342) ---------------
 
@@ -32,7 +33,7 @@ pub const HUD_NUM0: (i32, i32) = (135, 10);
 pub const HUD_DIGIT_DX: i32 = 21;
 pub const HUD_HISCORE_DY: i32 = 25;
 /// The yoke window (`YokeErase`), where the crosshair moves.
-pub const HUD_YOKE_WIN: (i32, i32, i32, i32) = (4, 4, 43, 43);
+pub const HUD_YOKE_WIN: Rect = Rect::new(4, 4, 43, 43);
 /// Height number (left-aligned), and centered wagon/gravity word rows.
 pub const HUD_HEIGHT: (i32, i32) = (339, 2);
 pub const HUD_WAGON_ROW: i32 = 19;
@@ -41,6 +42,6 @@ pub const HUD_GRAV_ROW: i32 = 36;
 pub const HUD_VALUE_X0: i32 = 325;
 pub const HUD_VALUE_X1: i32 = SB_W - 2;
 
-/// Flip boxes at the screen edges, `(x, y, w, h)` (`FlipFrame[1/2]`).
-pub const FLIP_BOX_L: (i32, i32, i32, i32) = (11, 289, 40, 46);
-pub const FLIP_BOX_R: (i32, i32, i32, i32) = (460, 289, 40, 46);
+/// Flip boxes at the screen edges (`FlipFrame[1/2]`).
+pub const FLIP_BOX_L: Rect = Rect::new(11, 289, 40, 46);
+pub const FLIP_BOX_R: Rect = Rect::new(460, 289, 40, 46);

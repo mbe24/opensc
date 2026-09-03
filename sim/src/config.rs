@@ -7,7 +7,7 @@
 //! re-exports this module so both sides share one source of truth.
 #![allow(dead_code)]
 
-use crate::geom::{Pos, Vel};
+use crate::geom::{Pos, Vel, VelRange};
 
 /// Logical playfield width — the classic 512-pixel Macintosh screen.
 pub const LOGICAL_W: i32 = 512;
@@ -30,14 +30,11 @@ pub const TICK_PERIOD: f32 = 1.0 / TICK_HZ;
 /// backgrounded tab / minimized window so the accumulator can't spiral.
 pub const MAX_FRAME_TIME: f32 = 0.25;
 
-// --- Copter control (mouse-as-joystick with inertia) -----------------------
+// --- Copter control (joystick/pointer with inertia) ------------------------
 
-/// Region the pointer maps within, `(left, top, right, bottom)`. Pointer
-/// position here maps linearly into [`DELTA_RECT`] to give the requested velocity.
-pub const MOUSE_RECT: (i32, i32, i32, i32) = (210, 134, 302, 206);
-/// Requested-velocity range `(min_h, min_v, max_h, max_v)`, px/tick. Note the
-/// asymmetric vertical range: the copter rises faster than it can climb.
-pub const DELTA_RECT: (i32, i32, i32, i32) = (-4, -3, 4, 4);
+/// Requested-velocity range, px/tick. Note the asymmetric vertical range: the
+/// copter rises faster than it can climb (`min.dv` is -3, `max.dv` is +4).
+pub const DELTA_RECT: VelRange = VelRange::new(Vel::new(-4, -3), Vel::new(4, 4));
 
 /// Copter sprite size in pixels.
 pub const COPTER_W: i32 = 74;

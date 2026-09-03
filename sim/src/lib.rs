@@ -25,7 +25,7 @@ pub mod wagon;
 pub mod world;
 
 pub use event::{Event, EventLog, EventSink, NoSink};
-pub use geom::{Pos, Vel};
+pub use geom::{Pos, Rect, Vel, VelRange};
 pub use intents::Intents;
 pub use sprite::{Sprite, SrcRect};
 pub use world::{RenderState, World};

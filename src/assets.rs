@@ -48,7 +48,7 @@ impl Assets {
 /// A 50% black/transparent checkerboard exactly the size of the yoke window, so
 /// it drops in crisp and phase-aligned with no scaling.
 fn yoke_gray() -> Texture2D {
-    let (_, _, w, h) = HUD_YOKE_WIN;
+    let (w, h) = (HUD_YOKE_WIN.w, HUD_YOKE_WIN.h);
     let mut img = Image::gen_image_color(w as u16, h as u16, Color::new(0.0, 0.0, 0.0, 0.0));
     for y in 0..u32::from(h as u16) {
         for x in 0..u32::from(w as u16) {

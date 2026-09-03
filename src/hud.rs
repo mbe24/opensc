@@ -21,7 +21,7 @@ use crate::config::{
 };
 use crate::draw;
 use crate::theme::{INK, SKY};
-use stuntcopter_sim::stuntman::Stuntman;
+use stuntcopter_sim::stuntman::{Outcome, Stuntman};
 
 pub fn draw(assets: &Assets, world: &World, playing: bool) {
     // dkGray band, then the opaque-white ScoreBox PICT on top (gray shows only in
@@ -39,11 +39,10 @@ pub fn draw(assets: &Assets, world: &World, playing: bool) {
     if playing {
         draw_yoke(assets, world);
     } else {
-        let (wx, wy, _, _) = HUD_YOKE_WIN;
         draw_texture(
             &assets.yoke_gray,
-            (SB_X + wx) as f32,
-            (SB_Y + wy) as f32,
+            (SB_X + HUD_YOKE_WIN.x) as f32,
+            (SB_Y + HUD_YOKE_WIN.y) as f32,
             INK,
         );
     }
@@ -59,10 +58,10 @@ fn draw_flip_boxes(assets: &Assets, world: &World) {
     let Some(pose) = flip.pose() else {
         return;
     };
-    for (fx, fy, fw, fh) in [FLIP_BOX_L, FLIP_BOX_R] {
-        draw_rectangle(fx as f32, fy as f32, fw as f32, fh as f32, SKY);
-        draw_rectangle_lines(fx as f32, fy as f32, fw as f32, fh as f32, 1.0, INK);
-        draw::sprite(assets, pose, (fx + 4) as f32, (fy + 4) as f32, INK);
+    for b in [FLIP_BOX_L, FLIP_BOX_R] {
+        draw_rectangle(b.x as f32, b.y as f32, b.w as f32, b.h as f32, SKY);
+        draw_rectangle_lines(b.x as f32, b.y as f32, b.w as f32, b.h as f32, 1.0, INK);
+        draw::sprite(assets, pose, (b.x + 4) as f32, (b.y + 4) as f32, INK);
     }
 }
 
@@ -72,11 +71,11 @@ fn draw_lives(assets: &Assets, world: &World) {
     for i in 0..MEN_PER_LEVEL {
         let x = (SB_X + HUD_MAN0.0 + i * HUD_MAN_DX) as f32;
         match world.results[i as usize] {
-            Some(true) => {
+            Some(Outcome::Landed) => {
                 let y = (SB_Y + HUD_MAN0.1 + HUD_THUMBUP_DY) as f32;
                 draw::sprite(assets, Sprite::ManThumbup, x, y, INK);
             }
-            Some(false) => {
+            Some(_) => {
                 let y = (SB_Y + HUD_MAN0.1 + HUD_THUMBDOWN_DY) as f32;
                 draw::sprite(assets, Sprite::ManThumbdown, x, y, INK);
             }
@@ -144,9 +143,9 @@ const YOKE_GAIN: f32 = 4.0;
 fn draw_yoke(assets: &Assets, world: &World) {
     let vel = world.copter.velocity();
     let (vx, vy) = (vel.dh, vel.dv);
-    let (wx, wy, ww, wh) = HUD_YOKE_WIN;
-    let (win_l, win_t) = ((SB_X + wx) as f32, (SB_Y + wy) as f32);
-    let (win_w, win_h) = (ww as f32, wh as f32);
+    let win = HUD_YOKE_WIN;
+    let (win_l, win_t) = ((SB_X + win.x) as f32, (SB_Y + win.y) as f32);
+    let (win_w, win_h) = (win.w as f32, win.h as f32);
     let cross = Sprite::Cross.rect();
 
     // Where the full cross would sit: centered in the window, swung by velocity.

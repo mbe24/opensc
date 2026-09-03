@@ -56,8 +56,8 @@ pub struct World {
     pub hiscore: i32,
     pub men_left: i32,
     pub good_jumps: i32,
-    /// Per-man result for this level: `Some(true)` landed, `Some(false)` failed.
-    pub results: [Option<bool>; MEN_PER_LEVEL as usize],
+    /// Per-man outcome for this level (`None` until the man is resolved).
+    pub results: [Option<Outcome>; MEN_PER_LEVEL as usize],
     /// Set when the last man is spent without clearing the level — the scene
     /// layer switches to the game-over screen.
     pub over: bool,
@@ -300,8 +300,8 @@ impl World {
 
     /// Apply an outcome's scoring/bookkeeping and return the points gained.
     fn score_outcome(&mut self, outcome: Outcome, height: i32) -> i32 {
-        // Record this man's result before `men_left` is touched below.
-        self.results[self.current_man()] = Some(matches!(outcome, Outcome::Landed));
+        // Record this man's outcome before `men_left` is touched below.
+        self.results[self.current_man()] = Some(outcome);
         match outcome {
             Outcome::Landed => {
                 let points = self.progression.level * height;
