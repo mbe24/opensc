@@ -107,11 +107,15 @@ impl Flip {
     }
 
     /// The current backflip pose, or `None` once the celebration is spent (only
-    /// the man-in-wagon remains).
+    /// the man-in-wagon remains — e.g. left showing on the game-over screen).
     #[must_use]
     pub fn pose(&self) -> Option<Sprite> {
+        if self.finished() {
+            return None;
+        }
+        // The 15th step (index 14) loops back to the first pose.
         let i = (self.tick / Self::PERIOD) as usize;
-        Self::POSES.get(i).copied().or(Some(Sprite::Flip01))
+        Some(Self::POSES.get(i).copied().unwrap_or(Sprite::Flip01))
     }
 }
 
