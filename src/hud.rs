@@ -35,7 +35,7 @@ pub fn draw(assets: &Assets, world: &World, playing: bool) {
     // The yoke tracks the copter only while a game is underway; otherwise it is
     // covered with gray (the original's `FillRect(YokeErase, Gray)`).
     if playing {
-        draw_yoke(world);
+        draw_yoke(assets, world);
     } else {
         let (wx, wy, _, _) = HUD_YOKE_WIN;
         draw_texture(
@@ -128,21 +128,45 @@ fn centered(assets: &Assets, s: &str, y_rel: i32) {
     draw::text(assets, s, x as f32, (SB_Y + y_rel) as f32, INK);
 }
 
-/// The yoke: a double-line crosshair with a center hub (the original's `OffCross`
-/// reticle), whose arms span the yoke window and shift with the copter's velocity.
-fn draw_yoke(world: &World) {
+/// The yoke: the original's `OffCross` reticle bitmap, centered in the window and
+/// shifted by the copter's velocity, clipped to the window (as the copter moves,
+/// the cross slides behind the frame — exactly the original's masked CopyBits).
+fn draw_yoke(assets: &Assets, world: &World) {
     let (vx, vy) = world.copter.velocity();
     let (wx, wy, ww, wh) = HUD_YOKE_WIN;
-    let (l, t) = ((SB_X + wx) as f32, (SB_Y + wy) as f32);
-    let (r, b) = (l + ww as f32, t + wh as f32);
-    let cx = l + ww as f32 / 2.0 + vx as f32;
-    let cy = t + wh as f32 / 2.0 + vy as f32;
-    for d in [-1.0, 1.0] {
-        draw_line(l, cy + d, r, cy + d, 1.0, INK); // double horizontal arm
-        draw_line(cx + d, t, cx + d, b, 1.0, INK); // double vertical arm
+    let (win_l, win_t) = ((SB_X + wx) as f32, (SB_Y + wy) as f32);
+    let (win_w, win_h) = (ww as f32, wh as f32);
+    let cross = Sprite::Cross.rect();
+
+    // Where the full cross would sit: centered in the window, offset by velocity.
+    let cross_l = win_l + (win_w - cross.w) / 2.0 + vx as f32;
+    let cross_t = win_t + (win_h - cross.h) / 2.0 + vy as f32;
+
+    // Draw only the part overlapping the window (the rest is clipped by the frame).
+    let vis_l = cross_l.max(win_l);
+    let vis_t = cross_t.max(win_t);
+    let vis_r = (cross_l + cross.w).min(win_l + win_w);
+    let vis_b = (cross_t + cross.h).min(win_t + win_h);
+    if vis_r <= vis_l || vis_b <= vis_t {
+        return;
     }
-    draw_circle_lines(cx, cy, 3.5, 1.0, INK);
-    draw_circle(cx, cy, 1.0, INK);
+    let (vw, vh) = (vis_r - vis_l, vis_b - vis_t);
+    draw_texture_ex(
+        &assets.atlas,
+        vis_l,
+        vis_t,
+        INK,
+        DrawTextureParams {
+            source: Some(Rect::new(
+                cross.x + (vis_l - cross_l),
+                cross.y + (vis_t - cross_t),
+                vw,
+                vh,
+            )),
+            dest_size: Some(vec2(vw, vh)),
+            ..Default::default()
+        },
+    );
 }
 
 fn digit_sprite(d: i32) -> Sprite {

@@ -62,16 +62,18 @@ fn yoke_gray() -> Texture2D {
     tex
 }
 
-/// A full-width HUD-strip checkerboard of black/transparent pixels — drawn once
-/// behind the HUD, it reads as the original's 50% gray dither over the sky.
+/// A full-width HUD-strip fill in the classic QuickDraw `dkGray` pattern (75%
+/// black), matching the original's `FillRect(scoreBox background, dkGray)`. It
+/// shows through in the margins beside the opaque ScoreBox panel.
 fn hud_dither() -> Texture2D {
+    // QuickDraw dkGray: rows alternate 0x77 / 0xDD, six of eight bits set.
+    const DK_GRAY: [u8; 8] = [0x77, 0xDD, 0x77, 0xDD, 0x77, 0xDD, 0x77, 0xDD];
     let (w, h) = (LOGICAL_W as u16, (LOGICAL_H - HUD_BAND_TOP) as u16);
     let mut img = Image::gen_image_color(w, h, Color::new(0.0, 0.0, 0.0, 0.0));
-    // 25% coverage — a light gray that keeps black content readable once the
-    // whole canvas is magnified.
     for y in 0..u32::from(h) {
         for x in 0..u32::from(w) {
-            if x % 2 == 0 && y % 2 == 0 {
+            let set = (DK_GRAY[(y % 8) as usize] >> (7 - x % 8)) & 1;
+            if set == 1 {
                 img.set_pixel(x, y, BLACK);
             }
         }
