@@ -9,6 +9,9 @@ repository = "https://github.com/mbe24/opensc"
 readme = "README.md"
 keywords = ["game", "macroquad", "wasm", "retro"]
 categories = ["games"]
+# `reference/` is Duane Blehm's original public-domain work (not ours to license),
+# and `dist/` is build output — neither belongs in a published package.
+exclude = ["reference/", "dist/"]
 
 [workspace]
 members = ["sim"]
