@@ -5,6 +5,8 @@ name: Deploy to GitHub Pages
 # in the Dockerfile is a separate self-hosting path.
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
