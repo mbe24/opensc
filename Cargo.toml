@@ -26,7 +26,9 @@ stuntcopter_sim = { path = "sim" }
 
 # macroquad enables miniquad's `log-impl`, which routes panics and its `error!`/
 # `info!` macros to the browser console on wasm (no wasm-bindgen needed).
-macroquad = "=0.4.16"
+# `audio` is NOT a default macroquad feature (default = []), so enable it — the
+# `audio` module compiles without it but is a silent no-op.
+macroquad = { version = "=0.4.16", features = ["audio"] }
 
 # Native builds keep the default dev/release profiles (fast incremental compiles,
 # `panic = unwind` so `#[should_panic]` tests work).

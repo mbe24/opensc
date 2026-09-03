@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod assets;
+mod audio;
 mod canvas;
 mod config;
 #[cfg(feature = "debug-controls")]
@@ -12,6 +13,7 @@ mod input;
 mod theme;
 
 use assets::Assets;
+use audio::{Ambient, Audio};
 use canvas::Canvas;
 use config::{GROUND_Y, MAN_H, TICK_PERIOD, WAGON_H, WAGON_W};
 use macroquad::prelude::*;
@@ -36,6 +38,7 @@ async fn main() {
     simulate_mouse_with_touch(false);
 
     let assets = Assets::load();
+    let mut audio = Audio::load().await;
     let canvas = Canvas::new();
     let mut world = World::default();
     // A per-session seed so wind isn't identical every run (tests keep the fixed
@@ -48,11 +51,8 @@ async fn main() {
     // them at 60 Hz over a 30 Hz sim); latch it here so no press is ever lost,
     // and clear it once a tick or a scene change consumes it.
     let mut drop_pending = false;
-    // A normal build discards events at zero cost; the debug build collects them
-    // for the on-screen log.
-    #[cfg(not(feature = "debug-controls"))]
-    let mut sink = stuntcopter_sim::NoSink;
-    #[cfg(feature = "debug-controls")]
+    // Collect each frame's simulation events; audio reacts to them, and the debug
+    // build also displays them.
     let mut sink = stuntcopter_sim::EventLog::default();
     #[cfg(feature = "debug-controls")]
     let mut debug = debug::Debug::default();
@@ -68,7 +68,6 @@ async fn main() {
         let mouse_steer = debug.mouse_steer();
         #[cfg(not(feature = "debug-controls"))]
         let mouse_steer = true;
-        #[cfg(feature = "debug-controls")]
         sink.clear();
 
         let mut intents = input::gather(&canvas, mouse_steer);
@@ -127,6 +126,9 @@ async fn main() {
             }
         }
 
+        // React to the frame's events (one-shots) and state (the drone loop).
+        audio.handle_events(sink.events(), world.progression.level);
+        audio.set_ambient(Ambient::Copter, matches!(scene, Scene::Playing));
         #[cfg(feature = "debug-controls")]
         debug.record(sink.events());
 
