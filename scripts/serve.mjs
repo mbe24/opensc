@@ -18,6 +18,7 @@ const MIME = {
     ".js": "text/javascript; charset=utf-8",
     ".wasm": "application/wasm",
     ".png": "image/png",
+    ".svg": "image/svg+xml",
     ".json": "application/json",
     ".css": "text/css; charset=utf-8",
 };

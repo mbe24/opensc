@@ -36,10 +36,14 @@ jobs:
           node-version: 22
 
       - uses: actions/configure-pages@v5
+        id: pages
 
-      # index.html uses relative paths, so it works under the /<repo>/ subpath.
+      # Page/asset paths are relative (work under the /<repo>/ subpath); SITE_URL
+      # makes the social-card og:image/og:url absolute, which crawlers require.
       - name: Build web
         run: npm run build:web
+        env:
+          SITE_URL: ${{ steps.pages.outputs.base_url }}
 
       - uses: actions/upload-pages-artifact@v3
         with:

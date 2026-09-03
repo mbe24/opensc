@@ -4,8 +4,25 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>OpenSC — StuntCopter</title>
-    <!-- Empty icon so the browser doesn't 404 on /favicon.ico. -->
-    <link rel="icon" href="data:,">
+    <link rel="icon" href="%SITE_URL%assets/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="%SITE_URL%assets/icon.svg">
+
+    <!-- Shared links show the running game, not the repo: own image, own text.
+         %SITE_URL% is substituted at build/deploy time (scripts/site-url.mjs) —
+         crawlers discard relative paths, so og:image and og:url must be absolute. -->
+    <meta name="description" content="A faithful Rust port of Duane Blehm's 1986 Macintosh game StuntCopter. Fly the copter, drop the stuntman, and land him in the moving hay wagon — native and in the browser.">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="OpenSC">
+    <meta property="og:url" content="%SITE_URL%">
+    <meta property="og:title" content="StuntCopter — the 1986 Mac classic, in your browser">
+    <meta property="og:description" content="Fly the copter, drop the stuntman, land him in the moving wagon. A faithful Rust port — no install, works on desktop and mobile.">
+    <meta property="og:image" content="%SITE_URL%assets/social-web.png">
+    <meta property="og:image:width" content="1280">
+    <meta property="og:image:height" content="640">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="StuntCopter — the 1986 Mac classic, in your browser">
+    <meta name="twitter:description" content="Fly the copter, drop the stuntman, land him in the moving wagon. A faithful Rust port — no install, works on desktop and mobile.">
+    <meta name="twitter:image" content="%SITE_URL%assets/social-web.png">
 
     <style>
         html, body {

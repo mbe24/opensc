@@ -8,9 +8,18 @@
 // are relative, so it works under the GitHub Pages `/<repo>/` subpath.
 
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, copyFileSync, writeFileSync } from "node:fs";
+import {
+    existsSync,
+    mkdirSync,
+    copyFileSync,
+    writeFileSync,
+    readFileSync,
+    cpSync,
+} from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+import { applySiteUrl } from "./site-url.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const PROFILE = "wasm-release";
@@ -42,8 +51,15 @@ if (!existsSync(built)) {
 // output filenames are fixed, so overwriting is a clean refresh.
 mkdirSync(dist, { recursive: true });
 copyFileSync(built, join(dist, WASM));
-copyFileSync(join(web, "index.html"), join(dist, "index.html"));
 copyFileSync(join(web, "mq_js_bundle.js"), join(dist, "mq_js_bundle.js"));
+// Substitute %SITE_URL% so social crawlers get absolute og:image/og:url; locally
+// it resolves to "" (relative paths), which also works under the Pages subpath.
+writeFileSync(
+    join(dist, "index.html"),
+    applySiteUrl(readFileSync(join(web, "index.html"), "utf8")),
+);
+// Static assets served alongside the page (favicon, touch icon, social cards).
+cpSync(join(web, "assets"), join(dist, "assets"), { recursive: true });
 // GitHub Pages runs Jekyll otherwise, which drops underscore-prefixed paths.
 writeFileSync(join(dist, ".nojekyll"), "");
 
