@@ -40,22 +40,27 @@ Space to drop; on mobile, drag and tap).
 
 ## How it works
 
-The game is a **pure simulation** advanced at a fixed 30 Hz, with the macroquad
-layer sampling input, rendering, and playing sound around it:
+The game is a **pure simulation** advanced at a fixed 30 Hz. Rendering reads the
+world **state** (interpolated between ticks); **events** are a separate, optional
+side-channel that only drives audio and the debug log — the renderer never
+consumes them:
 
 ```text
- devices ──▶ Intents ──▶ World::tick(30 Hz) ──▶ Events ──┬─▶ render (interpolated)
- (mouse/kbd/touch)        (sim: no macroquad)            ├─▶ audio (drone + one-shots)
-                                                         └─▶ debug event log
+ devices ──▶ Intents ──▶ World::tick (30 Hz) ──▶ world state ──▶ render (interpolated)
+ (mouse/kbd/touch)                │
+                                  └─▶ events ──┬─▶ audio (drone + one-shots)
+                                               └─▶ debug event log
 ```
 
-- The **sim** (`sim/`) owns all state and rules and emits typed **events**
-  (`Dropped`, `CelebrationStarted`, `Resolved`, `LevelCleared`, …). It knows
-  nothing about rendering, input, timing, or audio.
+- The **sim** (`sim/`) owns all state and rules. Its `tick` mutates state (what
+  the renderer draws) and, as a side-channel, reports typed **events**
+  (`Dropped`, `CelebrationStarted`, `Resolved`, `LevelCleared`, …) to a caller-
+  supplied `EventSink`. It knows nothing about rendering, input, timing, or audio.
 - The **presentation** (`src/`) runs the loop: a clamped fixed-timestep
-  accumulator with **render interpolation** for smooth motion, an `EventSink`
-  the sim reports to (audio and the debug overlay both consume it), and the
-  virtual-canvas renderer.
+  accumulator with **render interpolation** for smooth motion; the renderer reads
+  `render_state()` plus the public world fields. Audio and the debug overlay are
+  the only consumers of the event sink — pass `NoSink` and the sim does no event
+  work at all.
 - Because the sim is platform-free, the same logic is unit-tested headlessly and
   could be dropped behind a different renderer without change.
 
