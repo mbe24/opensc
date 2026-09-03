@@ -5,9 +5,9 @@
 //! chosen automatically per frame:
 //! - **keyboard** — arrows/WASD steer (full deflection), Space drops; overrides
 //!   the others while a steer key is held;
-//! - **touch** — a floating joystick on the left half of the screen (wherever
-//!   the thumb lands is neutral; drag to fly) and a tap on the right half to
-//!   drop, so steering and dropping never collide;
+//! - **touch** — a floating joystick on the left ~60% of the screen (wherever
+//!   the thumb lands is neutral; drag to fly) and a tap on the right to drop,
+//!   so steering and dropping never collide;
 //! - **mouse** — the desktop pointer's offset from the canvas centre.
 //!
 //! What it is not: game logic. The drop edge is latched by the caller and
@@ -22,7 +22,11 @@ use crate::config::{DELTA_RECT, LOGICAL_H, LOGICAL_W};
 /// Fraction around neutral that reads as no input, so hovering is stable.
 const DEAD_ZONE: f32 = 0.10;
 /// Thumb travel for full joystick deflection, as a fraction of screen height.
-const STICK_RADIUS_FRAC: f32 = 0.14;
+/// Larger = less sensitive (more travel needed for full speed).
+const STICK_RADIUS_FRAC: f32 = 0.30;
+/// Fraction of the screen width given to the steering half; the rest taps to
+/// drop. Steering gets the majority so it never feels cramped.
+const STEER_FRACTION: f32 = 0.6;
 
 /// Input sampler. Holds the little state the touch joystick needs across frames.
 #[derive(Default)]
@@ -92,13 +96,13 @@ impl Input {
     }
 
     fn touch_intents(&mut self, ts: &[Touch]) -> Intents {
-        let mid = screen_width() / 2.0;
+        let divider = screen_width() * STEER_FRACTION;
         let radius = (screen_height() * STICK_RADIUS_FRAC).max(1.0);
         let mut req = (0, 0);
         let mut steering = false;
         let mut drop = false;
         for t in ts {
-            if t.position.x < mid {
+            if t.position.x < divider {
                 steering = true;
                 // Floating joystick: keep the anchor from when this touch began.
                 let anchor = match self.stick {
